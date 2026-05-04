@@ -1,7 +1,11 @@
 import kagglehub
+from pathlib import Path
 
+def download_main_dataset(
+        handle: str = 'titanic', 
+        output_dir: str | Path = "deep-nn/datasets/raw"
+        ) -> None:
+    # Download latest version
+    path = kagglehub.competition_download(handle=handle, output_dir=output_dir, force_download=True)
 
-# Download latest version
-path = kagglehub.competition_download('titanic', output_dir="deep-nn/datasets/raw")
-
-print("Path to competition files:", path)
+    print("Path to competition files:", path)
