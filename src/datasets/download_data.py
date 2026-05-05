@@ -3,7 +3,7 @@ from pathlib import Path
 
 def download_main_dataset(
         handle: str = 'titanic', 
-        output_dir: str | Path = "deep-nn/datasets/raw"
+        output_dir: str | Path = "data/raw"
         ) -> None:
     # Download latest version
     path = kagglehub.competition_download(handle=handle, output_dir=output_dir, force_download=True)

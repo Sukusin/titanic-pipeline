@@ -2,12 +2,12 @@ from pathlib import Path
 
 import polars as pl
 
-from download_data import download_main_dataset
+from src.datasets.download_data import download_main_dataset
 
 
-RAW_DIR = "deep-nn/datasets/raw"
-PROCESSED_ORIGINAL_DIR = Path("deep-nn/datasets/processed/original")
-PROCESSED_BINNED_DIR = Path("deep-nn/datasets/processed/binned")
+RAW_DIR = "data/raw"
+PROCESSED_ORIGINAL_DIR = Path("data/processed/original")
+PROCESSED_BINNED_DIR = Path("data/processed/binned")
 
 TRAIN_PATH = f"{RAW_DIR}/train.csv"
 TEST_PATH = f"{RAW_DIR}/test.csv"
@@ -168,7 +168,7 @@ def save_dataset(
 
 download_main_dataset(
     handle="titanic",
-    output_dir="deep-nn/datasets/raw",
+    output_dir="data/raw",
 )
 
 print("=="*20)
