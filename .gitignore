@@ -13,3 +13,5 @@ wheels/
 .mypy_cache
 # deep-nn/datasets/processed
 # deep-nn/datasets/raw
+
+test.py

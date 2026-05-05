@@ -299,25 +299,25 @@ PROCESSED_BINNED_DIR.mkdir(parents=True, exist_ok=True)
 save_dataset(
     df=original_train_dataset,
     output_dir=PROCESSED_ORIGINAL_DIR,
-    filename="original_train_dataset",
+    filename="train_dataset",
 )
 
 save_dataset(
     df=binned_train_dataset,
     output_dir=PROCESSED_BINNED_DIR,
-    filename="binned_train_dataset",
+    filename="train_dataset",
 )
 
 save_dataset(
     df=original_test_dataset,
     output_dir=PROCESSED_ORIGINAL_DIR,
-    filename="original_test_dataset",
+    filename="test_dataset",
 )
 
 save_dataset(
     df=binned_test_dataset,
     output_dir=PROCESSED_BINNED_DIR,
-    filename="binned_test_dataset",
+    filename="test_dataset",
 )
 
 print("Prepocessing done!")

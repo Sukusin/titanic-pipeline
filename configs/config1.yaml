@@ -1,7 +1,0 @@
-project:
-  name: deep-nn
-  experiment_name: version_1
-  seed: 42
-
-paths:
-  dataset: "/dataset/"
