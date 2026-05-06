@@ -214,6 +214,7 @@ def save_experiment(
     )
     print(f"Metadata saved to: {metadata_path}")
     print(f"Summary saved to: {run_dir}/summary.json")
+    print("=="*25)
 
 def main() -> None:
     args = parse_args()

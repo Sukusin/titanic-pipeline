@@ -50,7 +50,7 @@ submission-predictions-classic:
 classic-pipeline:
 	make train-classic-all
 	make leaderboard-classic
-	make submission_predictions-classic
+	make submission-predictions-classic
 
 type-check:
 	uv run mypy .
