@@ -18,7 +18,9 @@ import numpy as np
 import yaml
 import argparse
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
+import json
+from datetime import datetime
+from src.utils.io import save_json, copy_file
 
 SEED = 42
 
@@ -50,7 +52,7 @@ MODEL_MAP = {
 
 SCALER_MAP = {
     "minmax": MinMaxScaler,
-    "standart": StandardScaler
+    "standard": StandardScaler
 }
 
 def make_folds(
@@ -191,3 +193,26 @@ for metric_name in metric_names:
     print(f"Mean {metric_name}: {summary[f"mean_{metric_name}"]:.04f}")
     print(f"Std {metric_name}: {summary[f"std_{metric_name}"]:.04f}")
 
+run_name = (
+    f"{config['experiment']['name']}_"
+    f"{args.dataset_type}_"
+    f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+)
+run_dir = Path("logs")/"classic"/run_name
+run_dir.mkdir(parents=True, exist_ok=True)
+
+fold_metrics_df.write_csv(run_dir / "fold_metrics_df.csv")
+copy_file(src=CONFIG_PATH, dst=run_dir/"config.yaml")
+
+summary = {
+    "experiment_name": config["experiment"]["name"],
+    "model_name": model_name,
+    "model_params": model_params,
+    "preprocessing": scaler_name,
+    "dataset_type": args.dataset_type,
+    "primary_metric": config["metrics"]["primary"],
+    "config_path": str(CONFIG_PATH),
+    **summary,
+}
+
+save_json(data=summary, path=run_dir/"summary.json")

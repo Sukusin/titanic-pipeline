@@ -1,5 +1,5 @@
 experiment:
-  name: "logreg_l2_original"
+  name: "logreg_noreg"
   seed: &seed 42
 
 data:
@@ -28,7 +28,7 @@ metrics:
     - "roc_auc"
 
 preprocessing:
-  scaler: "standart"
+  scaler: "standard"
 
 model:
   name: "logistic_regression"

@@ -15,3 +15,5 @@ wheels/
 # deep-nn/datasets/raw
 
 test.py
+logs/classic/*
+logs/deepnn/*

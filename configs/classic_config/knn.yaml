@@ -27,7 +27,7 @@ metrics:
     - "roc_auc"
     
 preprocessing:
-  scaler: "standart"
+  scaler: "standard"
 
 model:
   name: "knn"
