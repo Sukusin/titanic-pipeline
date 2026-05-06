@@ -8,37 +8,15 @@ from sklearn.ensemble import RandomForestClassifier
 from catboost import CatBoostClassifier
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    roc_auc_score)
-import numpy as np
-import yaml
 import argparse
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-import json
 from datetime import datetime
 from src.utils.io import save_json, copy_file
+from src.utils.config import load_config
+from src.utils.metrics import calculate_metrics, summarize_metrics
+import joblib
 
 SEED = 42
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--config",
-        type=Path,
-        help="Path to experiment config yaml"
-    )
-    parser.add_argument(
-        "--dataset-type",
-        type=str,
-        help="Choose data type (original/binned)"
-    )
-    parser
-    return parser.parse_args()
 
 MODEL_MAP = {
     "logistic_regression":      LogisticRegression,
@@ -54,6 +32,25 @@ SCALER_MAP = {
     "minmax": MinMaxScaler,
     "standard": StandardScaler
 }
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="Path to experiment config yaml"
+    )
+    parser.add_argument(
+        "--dataset-type",
+        type=str,
+        choices= ["original", "binned"],
+        required=True,
+        help="Choose data type (original/binned)"
+    )
+    parser
+    return parser.parse_args()
 
 def make_folds(
         X: pl.DataFrame,
@@ -74,145 +71,194 @@ def make_folds(
         folds.append((train_idx.tolist(), val_idx.tolist()))
     return folds
 
-def calculate_metrics(
-        y_true,
-        y_pred,
-        y_proba=None,
-        metric_names: list[str] | None = None) -> dict[str, float]:
-    if metric_names is None:
-        metric_names = ["accuracy"]
+def build_scaler(config: dict):
+    scaler_name = config["preprocessing"]["scaler"]
+    scaler_class = SCALER_MAP[scaler_name]
+    return scaler_class()
 
-    results = {}
-
-    for metric_name in metric_names:
-        if metric_name == "accuracy":
-            results["accuracy"] = accuracy_score(y_true, y_pred)
-        elif metric_name == "precision":
-            results["precision"] = precision_score(y_true, y_pred, zero_division=0)
-
-        elif metric_name == "recall":
-            results["recall"] = recall_score(y_true, y_pred, zero_division=0)
-
-        elif metric_name == "f1":
-            results["f1"] = f1_score(y_true, y_pred, zero_division=0)
-
-        elif metric_name == "roc_auc":
-            if y_proba is None:
-                results["roc_auc"] = None
-            else:
-                results["roc_auc"] = roc_auc_score(y_true, y_proba)
-
-        else:
-            raise ValueError(f"Unknown metric: {metric_name}")
-
-    return results
-
-# Config loading
-args = parse_args()
-CONFIG_PATH = args.config
-with open(file=CONFIG_PATH, mode="r") as f:
-    config = yaml.safe_load(f)
-
-# Data config
-data_config = config["data"][args.dataset_type]
-target_col = config["data"]["target"]
-train_path = data_config["train_path"]
-test_path = data_config["test_path"]
-
-# Metric names
-metric_names = config["metrics"]["log"]
-
-# Scaler name
-scaler_name = config["preprocessing"]["scaler"]
-
-# Model config
-model_config = config["model"]
-model_name = model_config["name"]
-model_params = model_config["params"]
-
-
-train_dataset = pl.read_parquet(train_path)
-test_dataset = pl.read_parquet(test_path)
-
-X = train_dataset.drop(target_col)
-y = train_dataset.get_column(target_col)
-
-folds = make_folds(
-    X,
-    y,
-    n_split=config["validation"]["n_splits"],
-    shuffle=config["validation"]["shuffle"],
-    random_state= config["validation"]["random_state"])
-
-scaler = SCALER_MAP[scaler_name]()
-fold_rows = []
-
-for i, (train_idx, val_idx) in enumerate(folds, start=1):
-    X_train_fold = X[train_idx]
-    X_val_fold = X[val_idx]
-
-    scaler.fit(X_train_fold)
-
-    X_train_fold = scaler.transform(X_train_fold)
-    X_val_fold = scaler.transform(X_val_fold)
-
-    y_train_fold = y[train_idx]
-    y_val_fold = y[val_idx]
+def build_model(config: dict):
+    model_name = config["model"]["name"]
+    model_params = config["model"]["params"]
 
     model_class = MODEL_MAP[model_name]
-    model = model_class(**model_params)
-    model.fit(X_train_fold, y_train_fold)
+    return model_class(**model_params)
 
-    val_pred = model.predict(X_val_fold)
+def run_cv(
+        X: pl.DataFrame,
+        y: pl.Series,
+        config: dict,
+        metric_names: list[str]
+        ) -> pl.DataFrame:
+    folds = make_folds(
+        X,
+        y,
+        n_split=config["validation"]["n_splits"],
+        shuffle=config["validation"]["shuffle"],
+        random_state= config["validation"]["random_state"])
 
-    if hasattr(model, "predict_proba"):
-        val_proba = model.predict_proba(X_val_fold)[:, 1]
-    else:
-        val_proba = None
+    fold_rows = []
 
-    fold_metrics = calculate_metrics(
-        y_true=y_val_fold,
-        y_pred=val_pred,
-        y_proba=val_proba,
+    for i, (train_idx, val_idx) in enumerate(folds, start=1):
+        X_train_fold = X[train_idx]
+        X_val_fold = X[val_idx]
+
+        scaler = build_scaler(config=config)
+        scaler.fit(X_train_fold)
+
+        X_train_fold = scaler.transform(X_train_fold)
+        X_val_fold = scaler.transform(X_val_fold)
+
+        y_train_fold = y[train_idx]
+        y_val_fold = y[val_idx]
+
+        model = build_model(config=config)
+        model.fit(X_train_fold, y_train_fold)
+
+        val_pred = model.predict(X_val_fold)
+
+        if hasattr(model, "predict_proba"):
+            val_proba = model.predict_proba(X_val_fold)[:, 1]
+        else:
+            val_proba = None
+
+        fold_metrics = calculate_metrics(
+            y_true=y_val_fold,
+            y_pred=val_pred,
+            y_proba=val_proba,
+            metric_names=metric_names
+            )
+        fold_row = {
+            "fold": i,
+            **fold_metrics
+        }
+        fold_rows.append(fold_row)
+    return pl.DataFrame(fold_rows)
+
+
+def make_run_name(config: dict, dataset_type: str) -> str:
+    return (
+        f"{config['experiment']['name']}_"
+        f"{dataset_type}_"
+        f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+    )
+
+def make_run_dirs(run_name: str) -> tuple[Path, Path]:
+    run_dir = Path("logs")/"classic"/run_name
+    artifact_dir = Path("models")/"classic"/run_name
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    return run_dir, artifact_dir
+
+def train_final_model(
+        X: pl.DataFrame,
+        y: pl.Series,
+        config: dict,
+        ):
+    scaler = build_scaler(config=config)
+    X_scaled = scaler.fit_transform(X)
+
+    model = build_model(config=config)
+    model.fit(X_scaled, y)
+
+    return model, scaler
+
+def save_experiment(
+        run_dir: Path,
+        artifact_dir: Path,
+        config_path: Path,
+        config: dict,
+        args: argparse.Namespace,
+        fold_metrics_df: pl.DataFrame,
+        summary: dict,
+        model,
+        scaler,
+        features: list[str],
+        ) -> None:
+    model_path = artifact_dir / "model.joblib"
+    scaler_path = artifact_dir / "scaler.joblib"
+    metadata_path = artifact_dir / "metadata.json"
+
+    joblib.dump(model, model_path)
+    joblib.dump(scaler, scaler_path)
+
+    fold_metrics_df.write_csv(run_dir / "fold_metrics.csv")
+    copy_file(src=config_path, dst=run_dir / "config.yaml")
+
+    save_json(
+        data={
+            "features": features,
+            "target": config["data"]["target"],
+            "dataset_type": args.dataset_type,
+            "model_path": str(model_path),
+            "scaler_path": str(scaler_path),
+        },
+        path=metadata_path,
+    )
+
+    save_json(
+        data={
+            "experiment_name": config["experiment"]["name"],
+            "model_name": config["model"]["name"],
+            "model_params": config["model"]["params"],
+            "preprocessing": config["preprocessing"]["scaler"],
+            "dataset_type": args.dataset_type,
+            "primary_metric": config["metrics"]["primary"],
+            "config_path": str(config_path),
+            "artifact_dir": str(artifact_dir),
+            "model_path": str(model_path),
+            "scaler_path": str(scaler_path),
+            **summary,
+        },
+        path=run_dir / "summary.json",
+    )
+
+def main() -> None:
+    args = parse_args()
+    config = load_config(args.config)
+    # Data config
+    data_config = config["data"][args.dataset_type]
+    target_col = config["data"]["target"]
+    metric_names = config["metrics"]["log"]
+
+    train_dataset = pl.read_parquet(data_config["train_path"])
+
+    X = train_dataset.drop(target_col)
+    y = train_dataset.get_column(target_col)
+
+    fold_metrics_df = run_cv(
+        X=X,
+        y=y,
+        config=config,
         metric_names=metric_names
         )
-    fold_row = {
-        "fold": i,
-        **fold_metrics
-    }
-    fold_rows.append(fold_row)
+    
+    summary = summarize_metrics(
+        fold_metrics_df=fold_metrics_df,
+        metric_names=metric_names,
+        )
+    
+    run_name = make_run_name(config=config, dataset_type=args.dataset_type)
+    run_dir, artifact_dir = make_run_dirs(run_name=run_name)
 
-fold_metrics_df = pl.DataFrame(fold_rows)
-print(fold_metrics_df)
-summary = {}
-for metric_name in metric_names:
-    values = fold_metrics_df.get_column(metric_name).drop_nulls()
-    summary[f"mean_{metric_name}"] = float(values.mean())
-    summary[f"std_{metric_name}"] = float(values.std())
-    print("=="*30)
-    print(f"Mean {metric_name}: {summary[f"mean_{metric_name}"]:.04f}")
-    print(f"Std {metric_name}: {summary[f"std_{metric_name}"]:.04f}")
+    final_model, final_scaler = train_final_model(
+        X=X,
+        y=y,
+        config=config
+        )
+    
+    save_experiment(
+        run_dir=run_dir,
+        artifact_dir=artifact_dir,
+        config_path=args.config,
+        config=config,
+        args=args,
+        fold_metrics_df=fold_metrics_df,
+        summary=summary,
+        model=final_model,
+        scaler=final_scaler,
+        features=X.columns
+        )
 
-run_name = (
-    f"{config['experiment']['name']}_"
-    f"{args.dataset_type}_"
-    f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
-)
-run_dir = Path("logs")/"classic"/run_name
-run_dir.mkdir(parents=True, exist_ok=True)
-
-fold_metrics_df.write_csv(run_dir / "fold_metrics_df.csv")
-copy_file(src=CONFIG_PATH, dst=run_dir/"config.yaml")
-
-summary = {
-    "experiment_name": config["experiment"]["name"],
-    "model_name": model_name,
-    "model_params": model_params,
-    "preprocessing": scaler_name,
-    "dataset_type": args.dataset_type,
-    "primary_metric": config["metrics"]["primary"],
-    "config_path": str(CONFIG_PATH),
-    **summary,
-}
-
-save_json(data=summary, path=run_dir/"summary.json")
+if __name__ == "__main__":
+    main()

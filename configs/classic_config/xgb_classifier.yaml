@@ -1,0 +1,45 @@
+experiment:
+  name: "xgb_classifier"
+  seed: &seed 42
+
+data:
+  target: "Survived"
+  original:
+    train_path: "data/processed/original/train_dataset.parquet"
+    test_path: "data/processed/original/test_dataset.parquet"
+  binned:
+    train_path: "data/processed/binned/train_dataset.parquet"
+    test_path: "data/processed/binned/test_dataset.parquet"
+
+validation:
+  type: "stratified_kfold"
+  n_splits: 5
+  shuffle: true
+  random_state: *seed
+
+metrics:
+  primary: "accuracy"
+  log:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "roc_auc"
+
+preprocessing:
+  scaler: "standard"
+
+model:
+  name: "xgb_classifier"
+  params:
+    n_estimators: 300
+    learning_rate: 0.03
+    max_depth: 3
+    min_child_weight: 2
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_alpha: 0.0
+    reg_lambda: 1.0
+    objective: "binary:logistic"
+    eval_metric: "logloss"
+    random_state: *seed

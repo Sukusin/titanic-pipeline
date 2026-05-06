@@ -20,6 +20,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "torch>=2.11.0",
     "torchvision>=0.26.0",
+    "types-pyyaml>=6.0.12.20260408",
     "xgboost>=3.2.0",
 ]
 

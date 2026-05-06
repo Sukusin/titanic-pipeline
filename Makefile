@@ -25,6 +25,13 @@ make train-classic-all:
 	make train-classic MODEL=logreg_l2 DATASET_TYPE=original
 	make train-classic MODEL=logreg_elasticnet DATASET_TYPE=binned
 	make train-classic MODEL=logreg_elasticnet DATASET_TYPE=original
+	make train-classic MODEL=catboost_classifier DATASET_TYPE=original
+	make train-classic MODEL=catboost_classifier DATASET_TYPE=binned
+	make train-classic MODEL=xgb_classifier DATASET_TYPE=original
+	make train-classic MODEL=xgb_classifier DATASET_TYPE=binned
+	make train-classic MODEL=lgbm_classifier DATASET_TYPE=original
+	make train-classic MODEL=lgbm_classifier DATASET_TYPE=binned
+
 
 leaderboard-classic:
 	$(PYTHON) -m src.classic.make_leaderboard

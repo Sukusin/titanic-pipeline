@@ -17,3 +17,6 @@ wheels/
 test.py
 logs/classic/*
 logs/deepnn/*
+catboost_info
+models/classic/*
+models/deepnn/*
