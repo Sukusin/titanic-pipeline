@@ -24,6 +24,7 @@ LEADERBOARD_COLUMNS = [
     "std_roc_auc",
     "config_path",
     "run_dir",
+    "artifact_dir",
 ]
 
 

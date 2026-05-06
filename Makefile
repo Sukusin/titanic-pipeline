@@ -7,6 +7,11 @@ DATASET_TYPE ?= original
 
 CONFIG_PATH := $(CONFIG_DIR)/$(MODEL).yaml
 
+# DATASET_DIR = data/processed
+# DATASET_TEST_TYPE ?=
+# TEST_PATH = $(DATASET_DIR)/
+TEST_PATH ?= data/processed/original/test_dataset.parquet
+
 lint:
 	uv run ruff check --fix
 
@@ -25,6 +30,10 @@ make train-classic-all:
 	make train-classic MODEL=logreg_l2 DATASET_TYPE=original
 	make train-classic MODEL=logreg_elasticnet DATASET_TYPE=binned
 	make train-classic MODEL=logreg_elasticnet DATASET_TYPE=original
+	make train-classic MODEL=decision_tree_classifier DATASET_TYPE=original
+	make train-classic MODEL=decision_tree_classifier DATASET_TYPE=binned
+	make train-classic MODEL=random_forest_classifier DATASET_TYPE=original
+	make train-classic MODEL=random_forest_classifier DATASET_TYPE=binned
 	make train-classic MODEL=catboost_classifier DATASET_TYPE=original
 	make train-classic MODEL=catboost_classifier DATASET_TYPE=binned
 	make train-classic MODEL=xgb_classifier DATASET_TYPE=original
@@ -32,9 +41,16 @@ make train-classic-all:
 	make train-classic MODEL=lgbm_classifier DATASET_TYPE=original
 	make train-classic MODEL=lgbm_classifier DATASET_TYPE=binned
 
-
 leaderboard-classic:
 	$(PYTHON) -m src.classic.make_leaderboard
+
+submission-predictions-classic:
+	$(PYTHON) -m src.classic.submission_predictions --test-path $(TEST_PATH)
+
+classic-pipeline:
+	make train-classic-all
+	make leaderboard-classic
+	make submission_predictions-classic
 
 type-check:
 	uv run mypy .

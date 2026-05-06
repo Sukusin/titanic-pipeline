@@ -1,0 +1,41 @@
+experiment:
+  name: "decision_tree_classifier"
+  seed: &seed 42
+
+data:
+  target: "Survived"
+  original:
+    train_path: "data/processed/original/train_dataset.parquet"
+    test_path: "data/processed/original/test_dataset.parquet"
+  binned:
+    train_path: "data/processed/binned/train_dataset.parquet"
+    test_path: "data/processed/binned/test_dataset.parquet"
+
+validation:
+  type: "stratified_kfold"
+  n_splits: 5
+  shuffle: true
+  random_state: *seed
+
+metrics:
+  primary: "accuracy"
+  log:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "roc_auc"
+
+preprocessing:
+  scaler: "standard"
+
+model:
+  name: "decision_tree_classifier"
+  params:
+    criterion: "gini"
+    splitter: "best"
+    max_depth: 4
+    min_samples_split: 10
+    min_samples_leaf: 5
+    max_features: null
+    random_state: *seed

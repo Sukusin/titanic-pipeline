@@ -212,6 +212,8 @@ def save_experiment(
         },
         path=run_dir / "summary.json",
     )
+    print(f"Metadata saved to: {metadata_path}")
+    print(f"Summary saved to: {run_dir}/summary.json")
 
 def main() -> None:
     args = parse_args()
