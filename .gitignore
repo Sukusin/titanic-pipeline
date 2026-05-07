@@ -20,3 +20,5 @@ logs/deepnn/*
 catboost_info
 models/classic/*
 models/deepnn/*
+mlflow.db
+mlruns
