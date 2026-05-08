@@ -1,9 +1,7 @@
 from pathlib import Path
 
 import polars as pl
-
-from src.datasets.download_data import download_main_dataset
-
+from download_data import download_main_dataset
 
 RAW_DIR = "data/raw"
 PROCESSED_ORIGINAL_DIR = Path("data/processed/original")
@@ -288,8 +286,12 @@ X_test = data_test.select(FEATURES_ORIGINAL)
 original_train_dataset = data_train.select(FEATURES_ORIGINAL + [TARGET])
 binned_train_dataset = data_train.select(FEATURES_BINNED + [TARGET])
 
-original_test_dataset = data_test.select([test_passenger_id] + FEATURES_ORIGINAL)
-binned_test_dataset = data_test.select([test_passenger_id] + FEATURES_BINNED)
+original_test_dataset = data_test.with_columns(test_passenger_id).select(
+    ["PassengerId", *FEATURES_ORIGINAL]
+)
+binned_test_dataset = data_test.with_columns(test_passenger_id).select(
+    ["PassengerId", *FEATURES_BINNED]
+)
 
 
 PROCESSED_ORIGINAL_DIR.mkdir(parents=True, exist_ok=True)

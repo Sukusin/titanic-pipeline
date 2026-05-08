@@ -1,8 +1,10 @@
-import joblib
 import argparse
 import json
-import polars as pl
 from pathlib import Path
+
+import joblib
+import polars as pl
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -26,7 +28,6 @@ def parse_args() -> argparse.Namespace:
         default=Path("submissions/submission.csv"),
         help="Path where to store submission predictions",
     )
-    parser
     return parser.parse_args()
 
 def get_artifact_path(args: argparse.Namespace) -> str | Path:
@@ -35,14 +36,18 @@ def get_artifact_path(args: argparse.Namespace) -> str | Path:
     else:
         leaderboard = pl.read_csv("logs/classic/leaderboard.csv")
         primary_metric = leaderboard.select("primary_metric")[0].item()
-        artifact_path = leaderboard.sort(by=f"mean_{primary_metric}", descending=True)[0].get_column("artifact_dir").item()
+        artifact_path = (
+            leaderboard
+            .sort(by=f"mean_{primary_metric}", descending=True)[0]
+            .get_column("artifact_dir")
+            .item())
         return artifact_path
 
 def load_artifacts(
         artifact_path: str | Path,
         ):
     metadata_path = f"{artifact_path}/metadata.json"
-    with open(file=metadata_path, mode="r") as f:
+    with open(file=metadata_path) as f:
         metadata = json.load(f)
     model = joblib.load(f"{artifact_path}/model.joblib")
     scaler = joblib.load(f"{artifact_path}/scaler.joblib")
@@ -52,7 +57,7 @@ def make_predictions(X, model):
     y_pred = model.predict(X)
     return y_pred
 
-def save_submission(passenger_id, y_pred, output_path) -> pl.DataFrame:
+def save_submission(passenger_id, y_pred, output_path) -> None:
     data = {
         "PassengerId": passenger_id,
         "Survived": y_pred,
@@ -61,7 +66,7 @@ def save_submission(passenger_id, y_pred, output_path) -> pl.DataFrame:
 
     submission_dataset.write_csv(output_path)
 
-def main():
+def main() -> None:
     args = parse_args()
     artifact_path = get_artifact_path(args=args)
     metadata, model, scaler = load_artifacts(artifact_path=artifact_path)

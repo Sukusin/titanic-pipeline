@@ -1,20 +1,22 @@
-from sklearn.model_selection import StratifiedKFold
-import polars as pl
-from pathlib import Path
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from catboost import CatBoostClassifier
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
 import argparse
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from datetime import datetime
-from src.utils.io import save_json, copy_file
-from src.utils.config import load_config
-from src.utils.metrics import calculate_metrics, summarize_metrics
+from pathlib import Path
+
 import joblib
+import polars as pl
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+from xgboost import XGBClassifier
+
+from src.utils.config import load_config
+from src.utils.io import copy_file, save_json
+from src.utils.metrics import calculate_metrics, summarize_metrics
 
 SEED = 42
 
@@ -49,7 +51,6 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Choose data type (original/binned)"
     )
-    parser
     return parser.parse_args()
 
 def make_folds(

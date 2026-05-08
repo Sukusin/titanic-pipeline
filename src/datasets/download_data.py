@@ -1,5 +1,7 @@
-import kagglehub
 from pathlib import Path
+
+import kagglehub
+
 
 def download_main_dataset(
         handle: str = 'titanic', 

@@ -1,11 +1,7 @@
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    roc_auc_score
-)
+from typing import cast
+
 import polars as pl
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 
 
 def calculate_metrics(
@@ -13,7 +9,7 @@ def calculate_metrics(
         y_pred,
         metric_names: list[str],
         y_proba=None,
-        ) -> dict[str, float]:
+        ) -> dict[str, float | None]:
 
     results = {}
 
@@ -44,6 +40,12 @@ def summarize_metrics(fold_metrics_df: pl.DataFrame, metric_names: list[str]) ->
     summary = {}
     for metric_name in metric_names:
         values = fold_metrics_df.get_column(metric_name).drop_nulls()
-        summary[f"mean_{metric_name}"] = float(values.mean())
-        summary[f"std_{metric_name}"] = float(values.std())
+        mean_value = cast(float | None, values.mean())
+        std_value = cast(float | None, values.std())
+
+        if mean_value is None:
+            raise ValueError(f"Cannot summarize metric with no values: {metric_name}")
+
+        summary[f"mean_{metric_name}"] = float(mean_value)
+        summary[f"std_{metric_name}"] = float(std_value or 0.0)
     return summary

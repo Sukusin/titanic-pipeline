@@ -21,7 +21,7 @@ process-data:
 train-classic:
 	$(PYTHON) -m src.classic.train --config $(CONFIG_PATH) --dataset-type $(DATASET_TYPE)
 
-make train-classic-all:
+train-classic-all:
 	make train-classic MODEL=knn DATASET_TYPE=binned
 	make train-classic MODEL=knn DATASET_TYPE=original
 	make train-classic MODEL=logreg_l1 DATASET_TYPE=binned

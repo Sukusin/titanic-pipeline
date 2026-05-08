@@ -3,7 +3,6 @@ from pathlib import Path
 
 import polars as pl
 
-
 LOGS_DIR = Path("logs/classic")
 OUTPUT_PATH = Path("logs/classic/leaderboard.csv")
 LEADERBOARD_COLUMNS = [
@@ -32,7 +31,7 @@ def main() -> None:
     rows = []
 
     for summary_path in LOGS_DIR.glob("*/summary.json"):
-        with open(summary_path, "r") as f:
+        with open(summary_path) as f:
             row = json.load(f)
 
         row["run_dir"] = str(summary_path.parent)
