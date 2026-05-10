@@ -17,8 +17,8 @@ from xgboost import XGBClassifier
 from src.utils.config import load_config
 from src.utils.io import copy_file, save_json
 from src.utils.metrics import calculate_metrics, summarize_metrics
+from src.utils.seed import set_seed
 
-SEED = 42
 
 MODEL_MAP = {
     "logistic_regression":      LogisticRegression,
@@ -58,7 +58,7 @@ def make_folds(
         y: pl.Series,
         n_split: int = 5,
         shuffle: bool = True,
-        random_state: int = SEED
+        random_state: int = 42
         ) -> list[tuple]:
     skf =  StratifiedKFold(
         n_splits=n_split,
@@ -224,6 +224,8 @@ def main() -> None:
     data_config = config["data"][args.dataset_type]
     target_col = config["data"]["target"]
     metric_names = config["metrics"]["log"]
+    seed = config["experiment"]["seed"]
+    set_seed(seed=seed)
 
     train_dataset = pl.read_parquet(data_config["train_path"])
 

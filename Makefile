@@ -7,9 +7,6 @@ DATASET_TYPE ?= original
 
 CONFIG_PATH := $(CONFIG_DIR)/$(MODEL).yaml
 
-# DATASET_DIR = data/processed
-# DATASET_TEST_TYPE ?=
-# TEST_PATH = $(DATASET_DIR)/
 TEST_PATH ?= data/processed/original/test_dataset.parquet
 
 lint:
@@ -54,3 +51,6 @@ classic-pipeline:
 
 type-check:
 	uv run mypy .
+
+docker-build:
+	docker build -it titanic-kaggle .
