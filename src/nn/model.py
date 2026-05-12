@@ -1,5 +1,5 @@
-import torch
 import torch.nn as nn
+
 
 class ModelOne(nn.Module):
     def __init__(self, in_features, hidden_features, out_features):

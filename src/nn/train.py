@@ -1,14 +1,18 @@
-import torch
-import torch.nn as nn
-import yaml
 import argparse
 from pathlib import Path
 
+import joblib
+import polars as pl
+import torch
+import torch.nn as nn
+import yaml
+
 import src.nn.engine as engine
 import src.nn.model as models
-from src.nn.data_setup import build_kfold_dataloader
 from src.nn.checkpoint import save_model
-from src.utils.io import make_run_name, make_run_dirs
+from src.nn.data_setup import build_final_dataloader, build_kfold_dataloader
+from src.utils.io import copy_file, make_run_dirs, make_run_name, save_json
+from src.utils.metrics import summarize_metrics
 
 CRITERION_MAP = {
     "bce_with_logits": nn.BCEWithLogitsLoss,
@@ -44,8 +48,74 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-def train_final_model():
-    pass
+
+def save_experiment(
+        run_dir: Path,
+        artifact_dir: Path,
+        config_path: Path,
+        config: dict,
+        args: argparse.Namespace,
+        fold_metrics_df: pl.DataFrame,
+        final_history_df: pl.DataFrame,
+        model: torch.nn.Module,
+        scaler,
+        features: list[str],
+        ) -> None:
+    model_path = artifact_dir / "model_final.pt"
+    scaler_path = artifact_dir / "scaler.joblib"
+    metadata_path = artifact_dir / "metadata.json"
+
+    save_model(
+        model=model,
+        artifact_dir=artifact_dir,
+        model_name=model_path.name,
+    )
+    joblib.dump(scaler, scaler_path)
+
+    fold_metrics_df.write_csv(run_dir / "fold_metrics.csv")
+    final_history_df.write_csv(run_dir / "final_history.csv")
+    copy_file(src=config_path, dst=run_dir / "config.yaml")
+
+    save_json(
+        data={
+            "features": features,
+            "target": config["data"]["target"],
+            "dataset_type": args.dataset_type,
+            "model_path": str(model_path),
+            "scaler_path": str(scaler_path),
+        },
+        path=metadata_path,
+    )
+
+    summary = summarize_metrics(
+        fold_metrics_df=fold_metrics_df,
+        metric_names=config["metrics"]["log"],
+    )
+
+    save_json(
+        data={
+            "experiment_name": config["experiment"]["name"],
+            "model_name": config["model"]["name"],
+            "model_params": config["model"]["params"],
+            "criterion": config["criterion"]["name"],
+            "optimizer_name": config["optimizer"]["name"],
+            "optimizer_params": config["optimizer"]["params"],
+            "preprocessing": config["preprocessing"]["scaler"],
+            "dataset_type": args.dataset_type,
+            "primary_metric": config["metrics"]["primary"],
+            "config_path": str(config_path),
+            "artifact_dir": str(artifact_dir),
+            "model_path": str(model_path),
+            "scaler_path": str(scaler_path),
+            **summary,
+        },
+        path=run_dir / "summary.json",
+    )
+
+    print("==" * 25)
+    print(f"Metadata saved to: {metadata_path}")
+    print(f"Summary saved to: {run_dir / 'summary.json'}")
+    print("==" * 25)
 
 def main():
     args = parse_args()
@@ -105,6 +175,7 @@ def main():
         )
 
     criterion = CRITERION_MAP[criterion_name]()
+    fold_rows = []
 
     for fold, (train_loader, val_loader) in enumerate(fold_dataloaders, start=1):
         print(f"Fold {fold}/{n_splits}")
@@ -125,7 +196,60 @@ def main():
             epochs=training_epochs,
             metric_names=metric_names
             )
-        print(results)
+        fold_row = {"fold": fold}
+        for metric_name, metric_values in results.items():
+            if not metric_values:
+                continue
+
+            output_metric_name = metric_name
+            if metric_name.startswith("val_"):
+                output_metric_name = metric_name.removeprefix("val_")
+
+            fold_row[output_metric_name] = metric_values[-1]
+        fold_rows.append(fold_row)
+
+    print("Training final model on whole dataset...")
+    final_train_loader, in_features, scaler = build_final_dataloader(
+        train_path=train_path,
+        target_col=target_col,
+        scaler_name=scaler_name,
+        batch_size=training_batch_size,
+        random_state=seed
+        )
+    
+    final_model = model_class(
+        in_features=in_features,
+        **model_params,
+        )
+    
+    final_optimizer = optimizer_class(params=final_model.parameters(), **optimizer_params)
+
+    final_results = engine.fit_final(
+        model=final_model,
+        train_loader=final_train_loader,
+        criterion=criterion,
+        optimizer=final_optimizer,
+        device=device,
+        epochs=training_epochs
+    )
+
+    run_name = make_run_name(config=config, dataset_type=args.dataset_type)
+    run_dir, artifact_dir = make_run_dirs(run_name=run_name, dataset_type="deepnn")
+
+    train_features = pl.read_parquet(train_path).drop(target_col).columns
+
+    save_experiment(
+        run_dir=run_dir,
+        artifact_dir=artifact_dir,
+        config_path=args.config,
+        config=config,
+        args=args,
+        fold_metrics_df=pl.DataFrame(fold_rows),
+        final_history_df=pl.DataFrame(final_results),
+        model=final_model,
+        scaler=scaler,
+        features=train_features,
+    )
+
 if __name__ == "__main__":
     main()
-# save_model(model, target_dir=".", model_name="baseline.pt")

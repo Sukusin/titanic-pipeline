@@ -1,6 +1,8 @@
 import torch
-from src.utils.metrics import calculate_metrics
 from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from src.utils.metrics import calculate_metrics
 
 
 def train_step(
@@ -100,7 +102,7 @@ def fit(
         "val_accuracy": [],
     }
     
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         train_loss, train_accuracy = train_step(
             model=model,
             train_loader=train_loader,
@@ -125,6 +127,36 @@ def fit(
         f"Train loss: {train_loss:.04f} | "
         f"Train accuracy: {train_accuracy:.04f} | "
         f"Val loss: {val_metrics["loss"]:.04f} | "
-        f"Val accuracy: {val_metrics["accuracy"]:.04f} | "
+        f"Val accuracy: {val_metrics["accuracy"]:.04f} | \n"
     )
+    return results
+
+def fit_final(
+        model: torch.nn.Module,
+        train_loader: DataLoader,
+        criterion: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        device: torch.device,
+        epochs: int,
+        ) -> dict:
+    results = {
+        "train_loss": [],
+        "train_accuracy": [],
+    }
+    for epoch in tqdm(range(1, epochs+1),):
+        train_loss, train_accuracy = train_step(
+            model=model,
+            train_loader=train_loader,
+            criterion=criterion,
+            optimizer=optimizer,
+            device=device
+            )
+        if epoch % 10 == 0 :
+            print(
+                f"Final epoch {epoch}/{epochs} | "
+                f"Train loss: {train_loss:.4f} | "
+                f"Train accuracy: {train_accuracy:.4f}"
+            )
+        results["train_loss"].append(train_loss)
+        results["train_accuracy"].append(train_accuracy)
     return results

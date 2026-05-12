@@ -1,5 +1,5 @@
 experiment:
-  name: "model_two"
+  name: "model_one"
   seed: &seed 42
   device: "auto"
 
@@ -31,7 +31,7 @@ metrics:
     - "roc_auc"
 
 model:
-  name: "model_two"
+  name: "model_one"
   params: 
     hidden_features: 32
     out_features: 1
