@@ -4,7 +4,7 @@ from pathlib import Path
 def save_model(
         model,
         target_dir,
-        model_name="model"
+        model_name,
 ):
     # Create target directory
     target_dir_path = Path(target_dir)

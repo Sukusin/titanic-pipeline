@@ -1,22 +1,30 @@
 PYTHON := uv run python
 
-CONFIG_DIR := configs/classic_config
+CLASSIC_CONFIG_DIR := configs/classic_config
+DEEPNN_CONFIG_DIR := configs/deepnn_config
 
 MODEL ?= logreg_l1
 DATASET_TYPE ?= original
 
-CONFIG_PATH := $(CONFIG_DIR)/$(MODEL).yaml
+CLASSIC_CONFIG_PATH := $(CONFIG_DIR)/$(MODEL).yaml
+DEEPNN_CONFIG_PATH := $(DEEPNN_CONFIG_DIR)/$(MODEL).yaml
 
 TEST_PATH ?= data/processed/original/test_dataset.parquet
 
 lint:
 	uv run ruff check --fix
 
+type-check:
+	uv run mypy .
+
+docker-build:
+	docker build -it titanic-kaggle .
+
 process-data:
 	$(PYTHON) -m src.datasets.process_dataset
 
 train-classic:
-	$(PYTHON) -m src.classic.train --config $(CONFIG_PATH) --dataset-type $(DATASET_TYPE)
+	$(PYTHON) -m src.classic.train --config $(CLASSIC_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
 
 train-classic-all:
 	make train-classic MODEL=knn DATASET_TYPE=binned
@@ -49,8 +57,5 @@ classic-pipeline:
 	make leaderboard-classic
 	make submission-predictions-classic
 
-type-check:
-	uv run mypy .
-
-docker-build:
-	docker build -it titanic-kaggle .
+train-deepnn:
+		$(PYTHON) -m src.nn.train --config $(DEEPNN_CONFIG_PATH) --dataset-type $(DATASET_TYPE)

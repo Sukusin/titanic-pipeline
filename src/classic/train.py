@@ -42,7 +42,7 @@ def parse_args() -> argparse.Namespace:
         "--config",
         type=Path,
         required=True,
-        help="Path to experiment config yaml"
+        help="Path to experiment config.yaml"
     )
     parser.add_argument(
         "--dataset-type",

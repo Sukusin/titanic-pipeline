@@ -3,25 +3,19 @@ from pathlib import Path
 import polars as pl
 import torch
 from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
 
 SCALER_MAP = {
     "minmax": MinMaxScaler,
     "standard": StandardScaler
 }
 
-# def build_scaler(config: dict):
-#     scaler_name = config["preprocessing"]["scaler"]
-#     scaler_class = SCALER_MAP[scaler_name]
-#     return scaler_class()
-
-# def make_folds(train_idx: list[int], val_idx: list[int]):
-        
-
 def build_kfold_dataloader(
         train_path: str | Path,
         target_col: str,
+        scaler_name: str,
         batch_size: int,
         n_splits: int = 5,
         shuffle: bool = True,
@@ -42,9 +36,8 @@ def build_kfold_dataloader(
 
         y_train_fold = y[train_idx]
         y_val_fold = y[val_idx]
-        
-        scaler = StandardScaler()
 
+        scaler = SCALER_MAP[scaler_name]()
         X_train_fold_scaled = scaler.fit_transform(X_train_fold)
         X_val_fold_scaled = scaler.transform(X_val_fold)
 

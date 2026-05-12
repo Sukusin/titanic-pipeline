@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+from src.utils.metrics import calculate_metrics
 
 
 def train_step(model, fold_loaders, criterion, optimizer, device):
@@ -7,6 +9,7 @@ def train_step(model, fold_loaders, criterion, optimizer, device):
     train_loss = 0.0
     train_correct = 0
     train_total = 0
+
 
     for i, data_loader in enumerate(fold_loaders, start=1):
         # print(f"Fold pair number: {i}")
@@ -31,63 +34,79 @@ def train_step(model, fold_loaders, criterion, optimizer, device):
     return train_loss, train_acc
 
 
-def val_step(model, fold_loader, criterion, device):
+def val_step(model, fold_loader, criterion, device, metric_names):
     model.eval().to(device)
 
     val_loss = 0.0
     val_correct = 0
     val_total = 0
 
+    all_y_true = []
+    all_y_pred = []
+    all_y_proba = []
+
     with torch.inference_mode():
         for data_loader in fold_loader:
             for X, y in data_loader[1]:
                 X, y = X.to(device), y.to(device)
 
-                val_pred = model(X)
+                val_logits = model(X)
+                loss = criterion(val_logits, y)
 
-                loss = criterion(val_pred, y)
+                val_proba = torch.sigmoid(val_logits)
+                val_pred_class = (val_proba >= 0.5).float()
+
                 val_loss += loss.item() * X.size(0)
-
-                val_pred_class = (torch.sigmoid(val_pred) >= 0.5).float()
                 val_correct += (val_pred_class == y).sum().item()
                 val_total += y.numel()
 
-    val_loss /= val_total
-    val_acc = val_correct / val_total
-    return val_loss, val_acc
+                all_y_true.extend(y.int().cpu().numpy().ravel())
+                all_y_pred.extend(val_pred_class.int().cpu().numpy().ravel())
+                all_y_proba.extend(val_proba.cpu().numpy().ravel())
+
+    metrics = calculate_metrics(
+        y_true=all_y_true,
+        y_pred=all_y_pred,
+        metric_names=metric_names,
+        y_proba=all_y_proba,
+    )
+    metrics["loss"] = val_loss / val_total
+    return metrics
 
 
-def fit(model, fold_loaders, criterion, optimizer, device, epochs):
+def fit(model, fold_loaders, criterion, optimizer, device, epochs, metric_names):
     results = {
         "train_loss": [],
-        "train_acc": [],
+        "train_accuracy": [],
         "val_loss": [],
-        "val_acc": [],
+        "val_accuracy": [],
     }
     
     for epoch in range(epochs):
-        train_loss, train_acc = train_step(
+        train_loss, train_accuracy = train_step(
             model=model,
             fold_loaders=fold_loaders,
             criterion=criterion,
             optimizer=optimizer,
             device=device
             )
-        val_loss, val_acc = val_step(
+        val_metrics = val_step(
             model=model,
             fold_loader=fold_loaders,
             criterion=criterion,
-            device=device
+            device=device,
+            metric_names=metric_names
         )
         print(
             f"Epoch {epoch}/{epochs} | ",
             f"Train loss: {train_loss:.04f} | "
-            f"Train acc: {train_acc:.04f} | "
-            f"Val loss: {val_loss:.04f} | "
-            f"Val acc: {val_acc:.04f} | "
+            f"Train accuracy: {train_accuracy:.04f} | "
+            f"Val loss: {val_metrics["loss"]:.04f} | "
+            f"Val accuracy: {val_metrics["accuracy"]:.04f} | "
         )
         results["train_loss"].append(train_loss)
-        results["train_acc"].append(train_acc)
-        results["val_loss"].append(val_loss)
-        results["val_acc"].append(val_acc)
+        results["train_accuracy"].append(train_accuracy)
+        for metric_name, metric_value in val_metrics.items():
+            results.setdefault(f"val_{metric_name}", [])
+            results[f"val_{metric_name}"].append(metric_value)
     return results
