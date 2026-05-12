@@ -24,6 +24,7 @@ OPTIMIZER_MAP = {
 }
 
 MODEL_MAP = {
+    "custom_model": models.CustomModel,
     "model_one": models.ModelOne,
     "model_two": models.ModelTwo,
     "model_batch_norm": models.ModelBatchNorm,

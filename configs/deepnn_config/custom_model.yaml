@@ -31,10 +31,13 @@ metrics:
     - "roc_auc"
 
 model:
-  name: "model_one"
+  name: "custom_model"
   params: 
-    hidden_features: 32
+    hidden_features: [32]
     out_features: 1
+    activation: relu
+    batch_norm: true
+    dropout_rate: 0.0
 
 criterion:
   name: "bce_with_logits"

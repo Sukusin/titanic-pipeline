@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+.vscode
 
 # Virtual environments
 .venv
@@ -12,8 +13,6 @@ wheels/
 .ruff_cache
 .mypy_cache
 
-# deep-nn/datasets/processed
-# deep-nn/datasets/raw
 test.py
 logs/classic/*
 logs/deepnn/*

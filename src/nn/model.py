@@ -1,6 +1,55 @@
 import torch.nn as nn
 
 
+class CustomModel(nn.Module):
+    def __init__(
+            self,
+            in_features: int,
+            hidden_features: list[int],
+            out_features: int = 1,
+            activation: str = "relu",
+            batch_norm: bool = False,
+            dropout_rate: float = 0.0,
+    ):
+        super().__init__()
+        activation_map = {
+            "relu": nn.ReLU,
+            "leaky_relu": nn.LeakyReLU,
+            "gelu": nn.GELU,
+            "tanh": nn.Tanh,
+        }
+        if activation not in activation_map:
+            raise AttributeError(f"Uknown activation function {activation}")
+        
+        layers = []
+        prev_feature = in_features
+
+        for hidden_feature in hidden_features:
+            layers.append(
+                nn.Linear(in_features=prev_feature, out_features=hidden_feature))
+
+            if batch_norm == True:
+                layers.append(
+                    nn.BatchNorm1d(num_features=hidden_feature)
+                )
+
+            layers.append(activation_map[activation](hidden_feature))
+
+            if dropout_rate > 0.0:
+                layers.append(nn.Dropout(p=dropout_rate))
+            
+            prev_feature = hidden_feature
+
+        layers.append(
+            nn.Linear(in_features=hidden_feature, out_features=out_features)
+        )
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.net(x)
+
+
+
 class ModelOne(nn.Module):
     def __init__(self, in_features, hidden_features, out_features):
         super().__init__()
