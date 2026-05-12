@@ -8,8 +8,7 @@ import src.nn.engine as engine
 import src.nn.model as models
 from src.nn.data_setup import build_kfold_dataloader
 from src.nn.checkpoint import save_model
-
-CONFIG_PATH = "configs/deepnn_config/model_one.yaml"
+from src.utils.io import make_run_name, make_run_dirs
 
 CRITERION_MAP = {
     "bce_with_logits": nn.BCEWithLogitsLoss,
@@ -45,79 +44,88 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-args = parse_args()
-with open(args.config) as f:
-    config = yaml.safe_load(f)
+def train_final_model():
+    pass
 
-seed = config["experiment"]["seed"]
-device = config["experiment"]["device"]
-if device == "auto":
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+def main():
+    args = parse_args()
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
 
-# data config
-data_config = config["data"]
-train_path = data_config["original"]["train_path"]
-target_col = data_config["target"]
+    seed = config["experiment"]["seed"]
+    device = config["experiment"]["device"]
+    if device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# validation config
-validation_config = config["validation"]
-val_type = validation_config["type"]
-n_splits = validation_config["n_splits"]
-shuffle = validation_config["shuffle"]
+    # data config
+    data_config = config["data"]
+    train_path = data_config[args.dataset_type]["train_path"]
+    target_col = data_config["target"]
 
-#preprocessing config
-preprocessing_config = config["preprocessing"]
-scaler_name = preprocessing_config["scaler"]
+    # validation config
+    validation_config = config["validation"]
+    val_type = validation_config["type"]
+    n_splits = validation_config["n_splits"]
+    shuffle = validation_config["shuffle"]
 
-# metrics config
-metrics_config = config["metrics"]
-primary_metric = metrics_config["primary"]
-metric_names = metrics_config["log"]
+    #preprocessing config
+    preprocessing_config = config["preprocessing"]
+    scaler_name = preprocessing_config["scaler"]
 
-# model config
-model = config["model"]["name"]
-model_class = MODEL_MAP[model]
-model_params = config["model"]["params"]
+    # metrics config
+    metrics_config = config["metrics"]
+    primary_metric = metrics_config["primary"]
+    metric_names = metrics_config["log"]
 
-# criterion config
-criterion_name = config["criterion"]["name"]
+    # model config
+    model = config["model"]["name"]
+    model_class = MODEL_MAP[model]
+    model_params = config["model"]["params"]
 
-# optimizer config
-optimizer_name = config["optimizer"]["name"]
-optimizer_step = config["optimizer"]["step"] #learning rate
+    # criterion config
+    criterion_name = config["criterion"]["name"]
 
-# training config
-training_epochs = config["training"]["epochs"]
-training_batch_size = config["training"]["batch_size"]
+    # optimizer config
+    optimizer_name = config["optimizer"]["name"]
+    optimizer_params = config["optimizer"]["params"]
+
+    # training config
+    training_epochs = config["training"]["epochs"]
+    training_batch_size = config["training"]["batch_size"]
 
 
-fold_dataloaders, in_features = build_kfold_dataloader(
-    train_path=train_path,
-    target_col=target_col,
-    scaler_name=scaler_name,
-    batch_size=training_batch_size,
-    n_splits=n_splits,
-    shuffle=shuffle,
-    random_state=seed
-    )
+    fold_dataloaders, in_features = build_kfold_dataloader(
+        train_path=train_path,
+        target_col=target_col,
+        scaler_name=scaler_name,
+        batch_size=training_batch_size,
+        n_splits=n_splits,
+        shuffle=shuffle,
+        random_state=seed
+        )
 
-model = model_class(
-    in_features=in_features,
-    **model_params
-    )
+    criterion = CRITERION_MAP[criterion_name]()
 
-criterion = CRITERION_MAP[criterion_name]()
-optimizer_class = OPTIMIZER_MAP[optimizer_name]
-optimizer = optimizer_class(params=model.parameters(), lr=optimizer_step)
+    for fold, (train_loader, val_loader) in enumerate(fold_dataloaders, start=1):
+        print(f"Fold {fold}/{n_splits}")
+        model = model_class(
+            in_features=in_features,
+            **model_params
+            )
+        optimizer_class = OPTIMIZER_MAP[optimizer_name]
+        optimizer = optimizer_class(params=model.parameters(), **optimizer_params)
 
-results = engine.fit(
-    model=model,
-    fold_loaders=fold_dataloaders,
-    criterion=criterion,
-    optimizer=optimizer,
-    device=device,
-    epochs=training_epochs,
-    metric_names=metric_names
-    )
-
-save_model(model, target_dir=".", model_name="baseline.pt")
+        results = engine.fit(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            criterion=criterion,
+            optimizer=optimizer,
+            device=device,
+            epochs=training_epochs,
+            metric_names=metric_names
+            )
+        print(results)
+if __name__ == "__main__":
+    main()
+# save_model(model, target_dir=".", model_name="baseline.pt")

@@ -3,11 +3,11 @@ from pathlib import Path
 
 def save_model(
         model: torch.nn.Module,
-        target_dir: Path | str,
+        artifact_dir: Path | str,
         model_name: str,
 ) -> None:
     # Create target directory
-    target_dir_path = Path(target_dir)
+    target_dir_path = Path(artifact_dir)
     target_dir_path.mkdir(parents=True,
                             exist_ok=True)
 

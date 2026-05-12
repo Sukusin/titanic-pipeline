@@ -41,7 +41,8 @@ criterion:
 
 optimizer:
   name: "adam"
-  step: 0.001
+  params:
+    lr: 0.001
 
 training:
   epochs: 10

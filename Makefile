@@ -6,7 +6,7 @@ DEEPNN_CONFIG_DIR := configs/deepnn_config
 MODEL ?= logreg_l1
 DATASET_TYPE ?= original
 
-CLASSIC_CONFIG_PATH := $(CONFIG_DIR)/$(MODEL).yaml
+CLASSIC_CONFIG_PATH := $(CLASSIC_CONFIG_DIR)/$(MODEL).yaml
 DEEPNN_CONFIG_PATH := $(DEEPNN_CONFIG_DIR)/$(MODEL).yaml
 
 TEST_PATH ?= data/processed/original/test_dataset.parquet

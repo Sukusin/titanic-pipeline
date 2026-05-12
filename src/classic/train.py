@@ -18,6 +18,7 @@ from src.utils.config import load_config
 from src.utils.io import copy_file, save_json
 from src.utils.metrics import calculate_metrics, summarize_metrics
 from src.utils.seed import set_seed
+from src.utils.io import make_run_name, make_run_dirs
 
 
 MODEL_MAP = {
@@ -135,22 +136,6 @@ def run_cv(
         fold_rows.append(fold_row)
     return pl.DataFrame(fold_rows)
 
-
-def make_run_name(config: dict, dataset_type: str) -> str:
-    return (
-        f"{config['experiment']['name']}_"
-        f"{dataset_type}_"
-        f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
-    )
-
-def make_run_dirs(run_name: str) -> tuple[Path, Path]:
-    run_dir = Path("logs")/"classic"/run_name
-    artifact_dir = Path("models")/"classic"/run_name
-
-    run_dir.mkdir(parents=True, exist_ok=True)
-    artifact_dir.mkdir(parents=True, exist_ok=True)
-    return run_dir, artifact_dir
-
 def train_final_model(
         X: pl.DataFrame,
         y: pl.Series,
@@ -213,6 +198,7 @@ def save_experiment(
         },
         path=run_dir / "summary.json",
     )
+    print("=="*25)
     print(f"Metadata saved to: {metadata_path}")
     print(f"Summary saved to: {run_dir}/summary.json")
     print("=="*25)
@@ -245,7 +231,7 @@ def main() -> None:
         )
     
     run_name = make_run_name(config=config, dataset_type=args.dataset_type)
-    run_dir, artifact_dir = make_run_dirs(run_name=run_name)
+    run_dir, artifact_dir = make_run_dirs(run_name=run_name, dataset_type=args.dataset_type)
 
     final_model, final_scaler = train_final_model(
         X=X,

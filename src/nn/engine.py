@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 def train_step(
         model: torch.nn.Module,
-        fold_loaders: list[tuple[DataLoader, DataLoader]],
+        train_loader: DataLoader,
         criterion: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         device: torch.device
@@ -17,23 +17,21 @@ def train_step(
     train_total = 0
 
 
-    for i, data_loader in enumerate(fold_loaders, start=1):
-        # print(f"Fold pair number: {i}")
-        for X, y in data_loader[0]:
-            X, y = X.to(device), y.to(device)
+    for X, y in train_loader:
+        X, y = X.to(device), y.to(device)
 
-            train_pred = model(X)
+        train_pred = model(X)
 
-            loss = criterion(train_pred, y)
-            train_loss += loss.item() * X.size(0)
+        loss = criterion(train_pred, y)
+        train_loss += loss.item() * X.size(0)
 
-            train_pred_class = (torch.sigmoid(train_pred) >= 0.5).float()
-            train_correct += (train_pred_class == y).sum().item()
-            train_total += y.numel()
+        train_pred_class = (torch.sigmoid(train_pred) >= 0.5).float()
+        train_correct += (train_pred_class == y).sum().item()
+        train_total += y.numel()
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
     train_loss /= train_total
     train_acc = train_correct / train_total
@@ -42,11 +40,11 @@ def train_step(
 
 def val_step(
         model: torch.nn.Module,
-        fold_loader: list[tuple[DataLoader, DataLoader]],
+        val_loader: DataLoader,
         criterion: torch.nn.Module,
         device: torch.device,
         metric_names: dict[str],
-        ) -> dict[str: float]:
+        ) -> dict:
     model.eval().to(device)
 
     val_loss = 0.0
@@ -58,23 +56,22 @@ def val_step(
     all_y_proba = []
 
     with torch.inference_mode():
-        for data_loader in fold_loader:
-            for X, y in data_loader[1]:
-                X, y = X.to(device), y.to(device)
+        for X, y in val_loader:
+            X, y = X.to(device), y.to(device)
 
-                val_logits = model(X)
-                loss = criterion(val_logits, y)
+            val_logits = model(X)
+            loss = criterion(val_logits, y)
 
-                val_proba = torch.sigmoid(val_logits)
-                val_pred_class = (val_proba >= 0.5).float()
+            val_proba = torch.sigmoid(val_logits)
+            val_pred_class = (val_proba >= 0.5).float()
 
-                val_loss += loss.item() * X.size(0)
-                val_correct += (val_pred_class == y).sum().item()
-                val_total += y.numel()
+            val_loss += loss.item() * X.size(0)
+            val_correct += (val_pred_class == y).sum().item()
+            val_total += y.numel()
 
-                all_y_true.extend(y.int().cpu().numpy().ravel())
-                all_y_pred.extend(val_pred_class.int().cpu().numpy().ravel())
-                all_y_proba.extend(val_proba.cpu().numpy().ravel())
+            all_y_true.extend(y.int().cpu().numpy().ravel())
+            all_y_pred.extend(val_pred_class.int().cpu().numpy().ravel())
+            all_y_proba.extend(val_proba.cpu().numpy().ravel())
 
     metrics = calculate_metrics(
         y_true=all_y_true,
@@ -88,13 +85,14 @@ def val_step(
 
 def fit(
         model: torch.nn.Module,
-        fold_loaders: list[tuple[DataLoader, DataLoader]],
+        train_loader: DataLoader,
+        val_loader: DataLoader,
         criterion: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         device: torch.device,
         epochs: int,
-        metric_names: dict[str],
-        ) -> dict[str: float]:
+        metric_names: list[str],
+        ) -> dict:
     results = {
         "train_loss": [],
         "train_accuracy": [],
@@ -105,28 +103,28 @@ def fit(
     for epoch in range(epochs):
         train_loss, train_accuracy = train_step(
             model=model,
-            fold_loaders=fold_loaders,
+            train_loader=train_loader,
             criterion=criterion,
             optimizer=optimizer,
             device=device
             )
         val_metrics = val_step(
             model=model,
-            fold_loader=fold_loaders,
+            val_loader=val_loader,
             criterion=criterion,
             device=device,
             metric_names=metric_names
-        )
-        print(
-            f"Epoch {epoch}/{epochs} | ",
-            f"Train loss: {train_loss:.04f} | "
-            f"Train accuracy: {train_accuracy:.04f} | "
-            f"Val loss: {val_metrics["loss"]:.04f} | "
-            f"Val accuracy: {val_metrics["accuracy"]:.04f} | "
         )
         results["train_loss"].append(train_loss)
         results["train_accuracy"].append(train_accuracy)
         for metric_name, metric_value in val_metrics.items():
             results.setdefault(f"val_{metric_name}", [])
             results[f"val_{metric_name}"].append(metric_value)
+    print(
+        # f"Epoch {epoch+1}/{epochs} | ",
+        f"Train loss: {train_loss:.04f} | "
+        f"Train accuracy: {train_accuracy:.04f} | "
+        f"Val loss: {val_metrics["loss"]:.04f} | "
+        f"Val accuracy: {val_metrics["accuracy"]:.04f} | "
+    )
     return results
