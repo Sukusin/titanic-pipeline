@@ -1,9 +1,15 @@
 import torch
-import torch.nn as nn
 from src.utils.metrics import calculate_metrics
+from torch.utils.data import DataLoader
 
 
-def train_step(model, fold_loaders, criterion, optimizer, device):
+def train_step(
+        model: torch.nn.Module,
+        fold_loaders: list[tuple[DataLoader, DataLoader]],
+        criterion: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        device: torch.device
+        ) -> tuple[float, float]:
     model.train().to(device)
 
     train_loss = 0.0
@@ -34,7 +40,13 @@ def train_step(model, fold_loaders, criterion, optimizer, device):
     return train_loss, train_acc
 
 
-def val_step(model, fold_loader, criterion, device, metric_names):
+def val_step(
+        model: torch.nn.Module,
+        fold_loader: list[tuple[DataLoader, DataLoader]],
+        criterion: torch.nn.Module,
+        device: torch.device,
+        metric_names: dict[str],
+        ) -> dict[str: float]:
     model.eval().to(device)
 
     val_loss = 0.0
@@ -74,7 +86,15 @@ def val_step(model, fold_loader, criterion, device, metric_names):
     return metrics
 
 
-def fit(model, fold_loaders, criterion, optimizer, device, epochs, metric_names):
+def fit(
+        model: torch.nn.Module,
+        fold_loaders: list[tuple[DataLoader, DataLoader]],
+        criterion: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        device: torch.device,
+        epochs: int,
+        metric_names: dict[str],
+        ) -> dict[str: float]:
     results = {
         "train_loss": [],
         "train_accuracy": [],

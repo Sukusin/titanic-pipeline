@@ -2,10 +2,10 @@ import torch
 from pathlib import Path
 
 def save_model(
-        model,
-        target_dir,
-        model_name,
-):
+        model: torch.nn.Module,
+        target_dir: Path | str,
+        model_name: str,
+) -> None:
     # Create target directory
     target_dir_path = Path(target_dir)
     target_dir_path.mkdir(parents=True,

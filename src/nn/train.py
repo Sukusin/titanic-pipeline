@@ -110,7 +110,7 @@ criterion = CRITERION_MAP[criterion_name]()
 optimizer_class = OPTIMIZER_MAP[optimizer_name]
 optimizer = optimizer_class(params=model.parameters(), lr=optimizer_step)
 
-engine.fit(
+results = engine.fit(
     model=model,
     fold_loaders=fold_dataloaders,
     criterion=criterion,
