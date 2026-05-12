@@ -60,3 +60,7 @@ classic-pipeline:
 
 train-deepnn:
 		$(PYTHON) -m src.nn.train --config $(DEEPNN_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
+
+leaderboard-deepnn:
+	$(PYTHON) -m src.nn.make_leaderboard
+	

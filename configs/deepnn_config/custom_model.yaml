@@ -1,5 +1,5 @@
 experiment:
-  name: "model_two"
+  name: "custom_model1"
   seed: &seed 42
   device: "auto"
 
@@ -33,11 +33,11 @@ metrics:
 model:
   name: "custom_model"
   params: 
-    hidden_features: [32]
+    hidden_features: [32, 64, 32]
     out_features: 1
     activation: relu
     batch_norm: true
-    dropout_rate: 0.0
+    dropout_rate: 0.15
 
 criterion:
   name: "bce_with_logits"
@@ -48,5 +48,5 @@ optimizer:
     lr: 0.001
 
 training:
-  epochs: 50
+  epochs: 100
   batch_size: 32
