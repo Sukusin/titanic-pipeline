@@ -231,7 +231,7 @@ def main() -> None:
         )
     
     run_name = make_run_name(config=config, dataset_type=args.dataset_type)
-    run_dir, artifact_dir = make_run_dirs(run_name=run_name, dataset_type=args.dataset_type)
+    run_dir, artifact_dir = make_run_dirs(run_name=run_name, model_type="classic")
 
     final_model, final_scaler = train_final_model(
         X=X,

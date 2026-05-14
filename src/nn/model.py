@@ -33,7 +33,7 @@ class CustomModel(nn.Module):
                     nn.BatchNorm1d(num_features=hidden_feature)
                 )
 
-            layers.append(activation_map[activation](hidden_feature))
+            layers.append(activation_map[activation]())
 
             if dropout_rate > 0.0:
                 layers.append(nn.Dropout(p=dropout_rate))
@@ -41,7 +41,7 @@ class CustomModel(nn.Module):
             prev_feature = hidden_feature
 
         layers.append(
-            nn.Linear(in_features=hidden_feature, out_features=out_features)
+            nn.Linear(in_features=prev_feature, out_features=out_features)
         )
         self.net = nn.Sequential(*layers)
 

@@ -22,7 +22,7 @@ preprocessing:
   scaler: "standard"
 
 metrics:
-  primary: "accuracy"
+  primary: "f1"
   log:
     - "accuracy"
     - "precision"

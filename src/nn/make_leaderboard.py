@@ -47,7 +47,7 @@ def main() -> None:
 
     leaderboard = (
         pl.DataFrame(rows)
-        .sort("mean_accuracy", descending=True)
+        .sort("mean_f1", descending=True)
     )
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

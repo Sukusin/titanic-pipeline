@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-path",
         required=False,
-        default=Path("submissions/submission.csv"),
+        default=Path("submissions/submission_classic.csv"),
         help="Path where to store submission predictions",
     )
     return parser.parse_args()

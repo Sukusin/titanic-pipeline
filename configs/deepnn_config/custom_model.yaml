@@ -22,7 +22,7 @@ preprocessing:
   scaler: "standard"
 
 metrics:
-  primary: "accuracy"
+  primary: "f1"
   log:
     - "accuracy"
     - "precision"
@@ -35,7 +35,7 @@ model:
   params: 
     hidden_features: [32, 64, 32]
     out_features: 1
-    activation: relu
+    activation: gelu
     batch_norm: true
     dropout_rate: 0.15
 

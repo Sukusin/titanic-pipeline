@@ -62,7 +62,7 @@ def save_experiment(
         scaler,
         features: list[str],
         ) -> None:
-    model_path = artifact_dir / "model_final.pt"
+    model_path = artifact_dir / "model.pt"
     scaler_path = artifact_dir / "scaler.joblib"
     metadata_path = artifact_dir / "metadata.json"
 
@@ -235,7 +235,7 @@ def main():
     )
 
     run_name = make_run_name(config=config, dataset_type=args.dataset_type)
-    run_dir, artifact_dir = make_run_dirs(run_name=run_name, dataset_type="deepnn")
+    run_dir, artifact_dir = make_run_dirs(run_name=run_name, model_type="deepnn")
 
     train_features = pl.read_parquet(train_path).drop(target_col).columns
 

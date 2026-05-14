@@ -19,7 +19,7 @@ validation:
   random_state: *seed
 
 metrics:
-  primary: "accuracy"
+  primary: "f1"
   log:
     - "accuracy"
     - "precision"

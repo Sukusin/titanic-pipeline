@@ -64,3 +64,5 @@ train-deepnn:
 leaderboard-deepnn:
 	$(PYTHON) -m src.nn.make_leaderboard
 	
+submission-predictions-deepnn:
+	$(PYTHON) -m src.nn.submission_predictions --test-path $(TEST_PATH) 
