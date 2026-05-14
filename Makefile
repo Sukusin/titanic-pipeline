@@ -19,7 +19,7 @@ type-check:
 	uv run mypy .
 
 docker-build:
-	docker build -it titanic-kaggle .
+	docker build -t titanic-kaggle .
 
 process-data:
 	$(PYTHON) -m src.datasets.process_dataset
@@ -59,7 +59,7 @@ classic-pipeline:
 	make submission-predictions-classic
 
 train-deepnn:
-		$(PYTHON) -m src.nn.train --config $(DEEPNN_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
+	$(PYTHON) -m src.nn.train --config $(DEEPNN_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
 
 leaderboard-deepnn:
 	$(PYTHON) -m src.nn.make_leaderboard
