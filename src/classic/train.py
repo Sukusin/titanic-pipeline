@@ -1,5 +1,4 @@
 import argparse
-from datetime import datetime
 from pathlib import Path
 
 import joblib
@@ -15,11 +14,9 @@ from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 
 from src.utils.config import load_config
-from src.utils.io import copy_file, save_json
+from src.utils.io import copy_file, make_run_dirs, make_run_name, save_json
 from src.utils.metrics import calculate_metrics, summarize_metrics
 from src.utils.seed import set_seed
-from src.utils.io import make_run_name, make_run_dirs
-
 
 MODEL_MAP = {
     "logistic_regression":      LogisticRegression,

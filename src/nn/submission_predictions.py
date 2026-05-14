@@ -9,7 +9,6 @@ import yaml
 
 import src.nn.model as models
 
-
 MODEL_MAP = {
     "custom_model": models.CustomModel,
     "model_one": models.ModelOne,

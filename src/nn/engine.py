@@ -45,17 +45,17 @@ def val_step(
         val_loader: DataLoader,
         criterion: torch.nn.Module,
         device: torch.device,
-        metric_names: dict[str],
-        ) -> dict:
+        metric_names: list[str],
+        ) -> dict[str, float | None]:
     model.eval().to(device)
 
     val_loss = 0.0
     val_correct = 0
     val_total = 0
 
-    all_y_true = []
-    all_y_pred = []
-    all_y_proba = []
+    all_y_true: list[int] = []
+    all_y_pred: list[int] = []
+    all_y_proba: list[float] = []
 
     with torch.inference_mode():
         for X, y in val_loader:
@@ -94,15 +94,15 @@ def fit(
         device: torch.device,
         epochs: int,
         metric_names: list[str],
-        ) -> dict:
-    results = {
+        ) -> dict[str, list[float | None]]:
+    results: dict[str, list[float | None]] = {
         "train_loss": [],
         "train_accuracy": [],
         "val_loss": [],
         "val_accuracy": [],
     }
     
-    for epoch in tqdm(range(epochs)):
+    for _epoch in tqdm(range(epochs)):
         train_loss, train_accuracy = train_step(
             model=model,
             train_loader=train_loader,
@@ -138,8 +138,8 @@ def fit_final(
         optimizer: torch.optim.Optimizer,
         device: torch.device,
         epochs: int,
-        ) -> dict:
-    results = {
+        ) -> dict[str, list[float]]:
+    results: dict[str, list[float]] = {
         "train_loss": [],
         "train_accuracy": [],
     }

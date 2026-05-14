@@ -135,7 +135,7 @@ def main():
 
     # validation config
     validation_config = config["validation"]
-    val_type = validation_config["type"]
+    # val_type = validation_config["type"]
     n_splits = validation_config["n_splits"]
     shuffle = validation_config["shuffle"]
 
@@ -145,7 +145,7 @@ def main():
 
     # metrics config
     metrics_config = config["metrics"]
-    primary_metric = metrics_config["primary"]
+    # primary_metric = metrics_config["primary"]
     metric_names = metrics_config["log"]
 
     # model config

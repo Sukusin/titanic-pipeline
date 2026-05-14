@@ -21,14 +21,14 @@ class CustomModel(nn.Module):
         if activation not in activation_map:
             raise AttributeError(f"Uknown activation function {activation}")
         
-        layers = []
+        layers: list[nn.Module] = []
         prev_feature = in_features
 
         for hidden_feature in hidden_features:
             layers.append(
                 nn.Linear(in_features=prev_feature, out_features=hidden_feature))
 
-            if batch_norm == True:
+            if batch_norm:
                 layers.append(
                     nn.BatchNorm1d(num_features=hidden_feature)
                 )
