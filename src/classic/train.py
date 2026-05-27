@@ -203,7 +203,7 @@ def save_experiment(
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
-    # Data config
+
     data_config = config["data"][args.dataset_type]
     target_col = config["data"]["target"]
     metric_names = config["metrics"]["log"]

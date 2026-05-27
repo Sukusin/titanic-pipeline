@@ -14,15 +14,6 @@ from src.nn.data_setup import build_final_dataloader, build_kfold_dataloader
 from src.utils.io import copy_file, make_run_dirs, make_run_name, save_json
 from src.utils.metrics import summarize_metrics
 
-CRITERION_MAP = {
-    "bce_with_logits": nn.BCEWithLogitsLoss,
-}
-
-OPTIMIZER_MAP = {
-    "adam": torch.optim.Adam,
-    "adamw": torch.optim.AdamW,
-}
-
 MODEL_MAP = {
     "custom_model": models.CustomModel,
     "model_one": models.ModelOne,
@@ -30,6 +21,22 @@ MODEL_MAP = {
     "model_batch_norm": models.ModelBatchNorm,
 }
 
+CRITERION_MAP = {
+    "bce_with_logits": nn.BCEWithLogitsLoss,
+}
+
+OPTIMIZER_MAP = {
+    "adam": torch.optim.Adam,
+    "adamw": torch.optim.AdamW,
+    "sgd": torch.optim.SGD,
+    "rmsprop": torch.optim.RMSprop,
+}
+
+SCHEDULER_MAP = {
+    "cosine": torch.optim.lr_scheduler.CosineAnnealingLR,
+    "step":  torch.optim.lr_scheduler.StepLR,
+    "plateu": torch.optim.lr_scheduler.ReduceLROnPlateau,
+}
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -164,6 +171,9 @@ def main():
     training_epochs = config["training"]["epochs"]
     training_batch_size = config["training"]["batch_size"]
 
+    # scheduler config
+    scheduler_config = config["scheduler"]
+    scheduler_params = config["params"]
 
     fold_dataloaders, in_features = build_kfold_dataloader(
         train_path=train_path,
@@ -186,6 +196,11 @@ def main():
             )
         optimizer_class = OPTIMIZER_MAP[optimizer_name]
         optimizer = optimizer_class(params=model.parameters(), **optimizer_params)
+        scheduler = None
+
+        if scheduler_config and scheduler_config["name"] != None:
+            scheduler_class = SCHEDULER_MAP[scheduler_config["name"]]
+            scheduler = scheduler_class(optimizer, **scheduler_params)
 
         results = engine.fit(
             model=model,
@@ -193,6 +208,7 @@ def main():
             val_loader=val_loader,
             criterion=criterion,
             optimizer=optimizer,
+            scheduler=scheduler,
             device=device,
             epochs=training_epochs,
             metric_names=metric_names

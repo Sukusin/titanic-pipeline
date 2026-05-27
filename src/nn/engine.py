@@ -10,6 +10,7 @@ def train_step(
         train_loader: DataLoader,
         criterion: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
+        scheduler: torch.optim.lr_scheduler.LRScheduler,
         device: torch.device
         ) -> tuple[float, float]:
     model.train().to(device)
@@ -91,6 +92,7 @@ def fit(
         val_loader: DataLoader,
         criterion: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
+        scheduler: torch.optim.lr_scheduler.LRScheduler,
         device: torch.device,
         epochs: int,
         metric_names: list[str],
@@ -108,6 +110,7 @@ def fit(
             train_loader=train_loader,
             criterion=criterion,
             optimizer=optimizer,
+            scheduler=scheduler,
             device=device
             )
         val_metrics = val_step(
