@@ -37,8 +37,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--test-path",
         type=Path,
-        required=True,
-        help="Path to test data you want to predict",
+        required=False,
+        help="Optional test data path. Defaults to the selected model dataset type.",
     )
 
     parser.add_argument(
@@ -149,9 +149,20 @@ def main() -> None:
         )
     
     features = metadata["features"]
-    test_data = pl.read_parquet(args.test_path)
-    passenger_id = test_data.get_column("PassengerId")
+    dataset_type = metadata["dataset_type"]
+    default_test_path = Path(config["data"][dataset_type]["test_path"])
+    test_path = args.test_path or default_test_path
+    test_data = pl.read_parquet(test_path)
 
+    missing_features = sorted(set(features).difference(test_data.columns))
+    if missing_features:
+        raise ValueError(
+            f"Test dataset {test_path} is incompatible with the selected {dataset_type} "
+            f"model. Missing features: {missing_features}. "
+            f"Use {default_test_path} or omit --test-path."
+        )
+
+    passenger_id = test_data.get_column("PassengerId")
     X = test_data.select(features).to_numpy()
     in_features = X.shape[1]
 

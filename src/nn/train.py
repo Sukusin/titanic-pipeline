@@ -35,8 +35,28 @@ OPTIMIZER_MAP = {
 SCHEDULER_MAP = {
     "cosine": torch.optim.lr_scheduler.CosineAnnealingLR,
     "step":  torch.optim.lr_scheduler.StepLR,
-    "plateu": torch.optim.lr_scheduler.ReduceLROnPlateau,
+    "plateau": torch.optim.lr_scheduler.ReduceLROnPlateau,
 }
+
+
+def build_scheduler(
+        optimizer: torch.optim.Optimizer,
+        scheduler_config: dict | None,
+        ) -> engine.Scheduler:
+    """Create a scheduler from config, or return None when it is disabled."""
+    if not scheduler_config:
+        return None
+
+    scheduler_name = scheduler_config.get("name")
+    if scheduler_name is None:
+        return None
+    if scheduler_name not in SCHEDULER_MAP:
+        raise ValueError(f"Unknown scheduler: {scheduler_name}")
+
+    scheduler_class = SCHEDULER_MAP[scheduler_name]
+    scheduler_params = scheduler_config.get("params", {})
+    return scheduler_class(optimizer, **scheduler_params)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -171,9 +191,8 @@ def main():
     training_epochs = config["training"]["epochs"]
     training_batch_size = config["training"]["batch_size"]
 
-    # scheduler config
-    scheduler_config = config["scheduler"]
-    scheduler_params = config["params"]
+    # An omitted scheduler key and `scheduler: null` both disable scheduling.
+    scheduler_config = config.get("scheduler")
 
     fold_dataloaders, in_features = build_kfold_dataloader(
         train_path=train_path,
@@ -196,11 +215,7 @@ def main():
             )
         optimizer_class = OPTIMIZER_MAP[optimizer_name]
         optimizer = optimizer_class(params=model.parameters(), **optimizer_params)
-        scheduler = None
-
-        if scheduler_config and scheduler_config["name"] != None:
-            scheduler_class = SCHEDULER_MAP[scheduler_config["name"]]
-            scheduler = scheduler_class(optimizer, **scheduler_params)
+        scheduler = build_scheduler(optimizer, scheduler_config)
 
         results = engine.fit(
             model=model,
@@ -240,12 +255,14 @@ def main():
         )
     
     final_optimizer = optimizer_class(params=final_model.parameters(), **optimizer_params)
+    final_scheduler = build_scheduler(final_optimizer, scheduler_config)
 
     final_results = engine.fit_final(
         model=final_model,
         train_loader=final_train_loader,
         criterion=criterion,
         optimizer=final_optimizer,
+        scheduler=final_scheduler,
         device=device,
         epochs=training_epochs
     )

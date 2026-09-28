@@ -1,8 +1,22 @@
 import torch
+from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.utils.metrics import calculate_metrics
+
+Scheduler = LRScheduler | ReduceLROnPlateau | None
+
+
+def step_scheduler(scheduler: Scheduler, metric: float) -> None:
+    """Advance an optional scheduler after an epoch."""
+    if scheduler is None:
+        return
+
+    if isinstance(scheduler, ReduceLROnPlateau):
+        scheduler.step(metric)
+    else:
+        scheduler.step()
 
 
 def train_step(
@@ -10,7 +24,6 @@ def train_step(
         train_loader: DataLoader,
         criterion: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
-        scheduler: torch.optim.lr_scheduler.LRScheduler,
         device: torch.device
         ) -> tuple[float, float]:
     model.train().to(device)
@@ -92,7 +105,7 @@ def fit(
         val_loader: DataLoader,
         criterion: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
-        scheduler: torch.optim.lr_scheduler.LRScheduler,
+        scheduler: Scheduler,
         device: torch.device,
         epochs: int,
         metric_names: list[str],
@@ -110,7 +123,6 @@ def fit(
             train_loader=train_loader,
             criterion=criterion,
             optimizer=optimizer,
-            scheduler=scheduler,
             device=device
             )
         val_metrics = val_step(
@@ -120,6 +132,11 @@ def fit(
             device=device,
             metric_names=metric_names
         )
+        val_loss = val_metrics["loss"]
+        if val_loss is None:
+            raise RuntimeError("Validation loss is required to update the scheduler.")
+        step_scheduler(scheduler, val_loss)
+
         results["train_loss"].append(train_loss)
         results["train_accuracy"].append(train_accuracy)
         for metric_name, metric_value in val_metrics.items():
@@ -139,6 +156,7 @@ def fit_final(
         train_loader: DataLoader,
         criterion: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
+        scheduler: Scheduler,
         device: torch.device,
         epochs: int,
         ) -> dict[str, list[float]]:
@@ -154,6 +172,7 @@ def fit_final(
             optimizer=optimizer,
             device=device
             )
+        step_scheduler(scheduler, train_loss)
         if epoch % 10 == 0 :
             print(
                 f"Final epoch {epoch}/{epochs} | "
