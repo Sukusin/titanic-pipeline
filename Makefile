@@ -3,6 +3,12 @@ PYTHON := uv run python
 CLASSIC_CONFIG_DIR := configs/classic_config
 DEEPNN_CONFIG_DIR := configs/deepnn_config
 
+CLASSIC_MODELS := \
+	knn logreg_l1 logreg_l2 logreg_elasticnet \
+	decision_tree_classifier random_forest_classifier \
+	catboost_classifier xgb_classifier lgbm_classifier
+DATASET_TYPES := original binned
+
 CLASSIC_MODEL ?= logreg_l1
 DEEPNN_MODEL ?= model_one
 DATASET_TYPE ?= original
@@ -12,57 +18,55 @@ DEEPNN_CONFIG_PATH := $(DEEPNN_CONFIG_DIR)/$(DEEPNN_MODEL).yaml
 
 TEST_PATH ?= data/processed/original/test_dataset.parquet
 
-lint:
+
+.DEFAULT_GOAL := help
+.PHONY: help lint type-check docker-build process-data \
+	train-classic train-classic-all leaderboard-classic \
+	submission-predictions-classic classic-pipeline \
+	train-deepnn leaderboard-deepnn submission-predictions-deepnn
+
+help: ## Show available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "%-34s %s\n", $$1, $$2}'
+
+lint: ## Run Ruff and apply safe fixes
 	uv run ruff check --fix
 
-type-check:
+type-check: ## Run static type checking
 	uv run mypy .
 
-docker-build:
+docker-build: ## Build the Docker image
 	docker build -t titanic-kaggle .
 
-process-data:
+process-data: ## Download and preprocess the Titanic data
 	$(PYTHON) -m src.datasets.process_dataset
 
-train-classic:
+train-classic: ## Train one classic model; set CLASSIC_MODEL and DATASET_TYPE
 	$(PYTHON) -m src.classic.train --config $(CLASSIC_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
 
-train-classic-all:
-	make train-classic CLASSIC_MODEL=knn DATASET_TYPE=binned
-	make train-classic CLASSIC_MODEL=knn DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=logreg_l1 DATASET_TYPE=binned
-	make train-classic CLASSIC_MODEL=logreg_l1 DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=logreg_l2 DATASET_TYPE=binned
-	make train-classic CLASSIC_MODEL=logreg_l2 DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=logreg_elasticnet DATASET_TYPE=binned
-	make train-classic CLASSIC_MODEL=logreg_elasticnet DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=decision_tree_classifier DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=decision_tree_classifier DATASET_TYPE=binned
-	make train-classic CLASSIC_MODEL=random_forest_classifier DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=random_forest_classifier DATASET_TYPE=binned
-	make train-classic CLASSIC_MODEL=catboost_classifier DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=catboost_classifier DATASET_TYPE=binned
-	make train-classic CLASSIC_MODEL=xgb_classifier DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=xgb_classifier DATASET_TYPE=binned
-	make train-classic CLASSIC_MODEL=lgbm_classifier DATASET_TYPE=original
-	make train-classic CLASSIC_MODEL=lgbm_classifier DATASET_TYPE=binned
+train-classic-all: ## Train every classic model on every dataset variant
+	@for dataset in $(DATASET_TYPES); do \
+		for model in $(CLASSIC_MODELS); do \
+			$(MAKE) --no-print-directory train-classic CLASSIC_MODEL=$$model DATASET_TYPE=$$dataset || exit $$?; \
+		done; \
+	done
 
-leaderboard-classic:
+leaderboard-classic: ## Build the classic-model leaderboard
 	$(PYTHON) -m src.classic.make_leaderboard
 
-submission-predictions-classic:
+submission-predictions-classic: ## Create a classic-model Kaggle submission
 	$(PYTHON) -m src.classic.submission_predictions --test-path $(TEST_PATH)
 
-classic-pipeline:
-	make train-classic-all
-	make leaderboard-classic
-	make submission-predictions-classic
+classic-pipeline: ## Train classic models, build leaderboard, create submission
+	$(MAKE) --no-print-directory train-classic-all
+	$(MAKE) --no-print-directory leaderboard-classic
+	$(MAKE) --no-print-directory submission-predictions-classic
 
-train-deepnn:
+train-deepnn: ## Train one neural network; set DEEPNN_MODEL and DATASET_TYPE
 	$(PYTHON) -m src.nn.train --config $(DEEPNN_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
 
-leaderboard-deepnn:
+leaderboard-deepnn: ## Build the neural-network leaderboard
 	$(PYTHON) -m src.nn.make_leaderboard
-	
-submission-predictions-deepnn:
-	$(PYTHON) -m src.nn.submission_predictions --test-path $(TEST_PATH) 
+
+submission-predictions-deepnn: leaderboard-deepnn ## Create a neural-network Kaggle submission
+	$(PYTHON) -m src.nn.submission_predictions
