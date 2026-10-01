@@ -15,6 +15,7 @@ DATASET_TYPE ?= original
 
 CLASSIC_CONFIG_PATH := $(CLASSIC_CONFIG_DIR)/$(CLASSIC_MODEL).yaml
 DEEPNN_CONFIG_PATH := $(DEEPNN_CONFIG_DIR)/$(DEEPNN_MODEL).yaml
+ENSEMBLE_CONFIG_PATH ?= configs/ensemble_config/ensembles.yaml
 
 TEST_PATH ?= data/processed/original/test_dataset.parquet
 
@@ -23,7 +24,8 @@ TEST_PATH ?= data/processed/original/test_dataset.parquet
 .PHONY: help lint type-check docker-build process-data \
 	train-classic train-classic-all leaderboard-classic \
 	submission-predictions-classic classic-pipeline \
-	train-deepnn leaderboard-deepnn submission-predictions-deepnn
+	train-deepnn leaderboard-deepnn submission-predictions-deepnn \
+	train-ensembles submission-predictions-ensembles test-ensembles
 
 help: ## Show available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -70,3 +72,12 @@ leaderboard-deepnn: ## Build the neural-network leaderboard
 
 submission-predictions-deepnn: leaderboard-deepnn ## Create a neural-network Kaggle submission
 	$(PYTHON) -m src.nn.submission_predictions
+
+train-ensembles: ## Compare averaging, voting and OOF stacking; save models and submission
+	$(PYTHON) -m src.ensembles.train --config $(ENSEMBLE_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
+
+submission-predictions-ensembles: ## Create a submission from the best saved ensemble
+	$(PYTHON) -m src.ensembles.submission_predictions
+
+test-ensembles: ## Check ensemble predictions and OOF isolation
+	$(PYTHON) -m unittest discover -s tests -p 'test_ensembles.py'
