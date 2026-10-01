@@ -136,7 +136,10 @@ def make_folds(
 def build_scaler(config: dict):
     scaler_name = config["preprocessing"]["scaler"]
     scaler_class = SCALER_MAP[scaler_name]
-    return scaler_class()
+    scaler = scaler_class()
+    if config["model"]["name"] == "lgbm_classifier":
+        scaler.set_output(transform="pandas")
+    return scaler
 
 def build_model(config: dict):
     model_name = config["model"]["name"]
