@@ -6,11 +6,11 @@ experiment:
 data:
   target: "Survived"
   original:
-    train_path: "data/processed/original/train_dataset.parquet"
-    test_path: "data/processed/original/test_dataset.parquet"
+    train_path: "data/processed/raw/train_dataset.parquet"
+    test_path: "data/processed/raw/test_dataset.parquet"
   binned:
-    train_path: "data/processed/binned/train_dataset.parquet"
-    test_path: "data/processed/binned/test_dataset.parquet"
+    train_path: "data/processed/raw/train_dataset.parquet"
+    test_path: "data/processed/raw/test_dataset.parquet"
 
 validation:
   type: "stratified_kfold"
