@@ -17,7 +17,9 @@ CLASSIC_CONFIG_PATH := $(CLASSIC_CONFIG_DIR)/$(CLASSIC_MODEL).yaml
 DEEPNN_CONFIG_PATH := $(DEEPNN_CONFIG_DIR)/$(DEEPNN_MODEL).yaml
 ENSEMBLE_CONFIG_PATH ?= configs/ensemble_config/ensembles.yaml
 
-TEST_PATH ?= data/processed/original/test_dataset.parquet
+CLASSIC_PIPELINE_MODELS ?= $(CLASSIC_MODELS)
+CLASSIC_PIPELINE_DATASETS ?= $(DATASET_TYPES)
+TEST_PATH ?=
 
 
 .DEFAULT_GOAL := help
@@ -60,12 +62,10 @@ leaderboard-classic: ## Build the classic-model leaderboard
 	$(PYTHON) -m src.classic.make_leaderboard
 
 submission-predictions-classic: ## Create a classic-model Kaggle submission
-	$(PYTHON) -m src.classic.submission_predictions --test-path $(TEST_PATH)
+	$(PYTHON) -m src.classic.submission_predictions $(if $(TEST_PATH),--test-path $(TEST_PATH),)
 
-classic-pipeline: ## Train classic models, build leaderboard, create submission
-	$(MAKE) --no-print-directory train-classic-all
-	$(MAKE) --no-print-directory leaderboard-classic
-	$(MAKE) --no-print-directory submission-predictions-classic
+classic-pipeline: ## Prepare data, train classic models, rank by F1, create submission
+	$(PYTHON) -m src.main --models $(CLASSIC_PIPELINE_MODELS) --dataset-types $(CLASSIC_PIPELINE_DATASETS)
 
 train-deepnn: ## Train one neural network; set DEEPNN_MODEL and DATASET_TYPE
 	$(PYTHON) -m src.nn.train --config $(DEEPNN_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
