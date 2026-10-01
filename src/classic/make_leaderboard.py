@@ -10,6 +10,7 @@ LEADERBOARD_COLUMNS = [
     "model_name",
     "dataset_type",
     "preprocessing",
+    "preprocessing_version",
     "primary_metric",
     "mean_accuracy",
     "std_accuracy",
@@ -34,7 +35,11 @@ def main() -> None:
         with open(summary_path) as f:
             row = json.load(f)
 
+        if row.get("preprocessing_version") != 2:
+            continue
+
         row["run_dir"] = str(summary_path.parent)
+        row["primary_metric"] = "f1"
         row = {
             column: row.get(column)
             for column in LEADERBOARD_COLUMNS
@@ -42,8 +47,7 @@ def main() -> None:
         rows.append(row)
 
     if not rows:
-        print("No experiment summaries found.")
-        return
+        raise RuntimeError("No classic summaries with fold-local preprocessing found.")
 
     leaderboard = (
         pl.DataFrame(rows)

@@ -131,6 +131,7 @@ def main() -> None:
     parser.add_argument("--dataset-type", choices=["original", "binned"], default="original")
     args = parser.parse_args()
     config = load_config(args.config)
+    config["dataset_type"] = args.dataset_type
     base_configs = [load_config(path) for path in config["base_configs"]]
     set_seed(config["experiment"]["seed"])
 

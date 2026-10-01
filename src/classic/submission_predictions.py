@@ -18,8 +18,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--test-path",
         type=Path,
-        required=True,
-        help="Path to test/submission csv data you want to predict"   
+        help="Optional override; defaults to the selected model's test dataset",
     )
 
     parser.add_argument(
@@ -35,10 +34,13 @@ def get_artifact_path(args: argparse.Namespace) -> str | Path:
         return args.artifact_path
     else:
         leaderboard = pl.read_csv("logs/classic/leaderboard.csv")
-        primary_metric = leaderboard.select("primary_metric")[0].item()
+        if "preprocessing_version" in leaderboard.columns:
+            current = leaderboard.filter(pl.col("preprocessing_version") == 2)
+            if not current.is_empty():
+                leaderboard = current
         artifact_path = (
             leaderboard
-            .sort(by=f"mean_{primary_metric}", descending=True)[0]
+            .sort(by="mean_f1", descending=True)[0]
             .get_column("artifact_dir")
             .item())
         return artifact_path
@@ -51,13 +53,18 @@ def load_artifacts(
         metadata = json.load(f)
     model = joblib.load(f"{artifact_path}/model.joblib")
     scaler = joblib.load(f"{artifact_path}/scaler.joblib")
-    return metadata, model, scaler
+    feature_transformer = (
+        joblib.load(Path(artifact_path) / "features.joblib")
+        if "features_path" in metadata else None
+    )
+    return metadata, model, scaler, feature_transformer
 
 def make_predictions(X, model):
     y_pred = model.predict(X)
     return y_pred
 
 def save_submission(passenger_id, y_pred, output_path) -> None:
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     data = {
         "PassengerId": passenger_id,
         "Survived": y_pred,
@@ -69,14 +76,19 @@ def save_submission(passenger_id, y_pred, output_path) -> None:
 def main() -> None:
     args = parse_args()
     artifact_path = get_artifact_path(args=args)
-    metadata, model, scaler = load_artifacts(artifact_path=artifact_path)
+    metadata, model, scaler, feature_transformer = load_artifacts(artifact_path=artifact_path)
     features = metadata["features"]
-    test_data = pl.read_parquet(args.test_path)
+    test_path = args.test_path or metadata.get("test_path")
+    if test_path is None:
+        test_path = f"data/processed/{metadata['dataset_type']}/test_dataset.parquet"
+    test_data = pl.read_parquet(test_path)
     passenger_id = test_data.get_column("PassengerId")
 
     X = test_data.select(features)
-
-    X_scaled = scaler.transform(X)
+    X_features = (
+        feature_transformer.transform(X.to_numpy()) if feature_transformer is not None else X
+    )
+    X_scaled = scaler.transform(X_features)
     y_pred = make_predictions(X=X_scaled, model=model)
     save_submission(passenger_id=passenger_id, y_pred=y_pred, output_path=args.output_path)
 
