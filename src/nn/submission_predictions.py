@@ -8,9 +8,11 @@ import torch
 import yaml
 
 import src.nn.model as models
+from src.nn.embedding_model import EmbeddingModel
 
 MODEL_MAP = {
     "custom_model": models.CustomModel,
+    "embedding_model": EmbeddingModel,
     "model_one": models.ModelOne,
     "model_two": models.ModelTwo,
     "model_batch_norm": models.ModelBatchNorm,
@@ -60,26 +62,25 @@ def get_artifact_config_path(args: argparse.Namespace) -> tuple:
 
         primary_metric = leaderboard.select("primary_metric")[0].item()
 
-        best_row = (
-            leaderboard
-            .sort(by=f"mean_{primary_metric}", descending=True)[0]
-            .row(0, named=True))
+        best_row = leaderboard.sort(by=f"mean_{primary_metric}", descending=True)[0].row(
+            0, named=True
+        )
 
         artifact_path = Path(best_row["artifact_dir"])
-        config = Path(best_row["run_dir"])/"config.yaml"
+        config = Path(best_row["run_dir"]) / "config.yaml"
 
         return artifact_path, config
 
 
 def load_artifacts(
-        artifact_path: str | Path,
-        device: torch.device,
-        ):
+    artifact_path: str | Path,
+    device: torch.device,
+):
     artifact_path = Path(artifact_path)
 
-    metadata_path = artifact_path/"metadata.json"
-    model_path = artifact_path/"model.pt"
-    scaler_path = artifact_path/"scaler.joblib"
+    metadata_path = artifact_path / "metadata.json"
+    model_path = artifact_path / "model.pt"
+    scaler_path = artifact_path / "scaler.joblib"
 
     with open(file=metadata_path) as f:
         metadata = json.load(f)
@@ -89,22 +90,27 @@ def load_artifacts(
     return metadata, model_state_dict, scaler
 
 
-def build_model_from_config(in_features: int, config: dict) ->torch.nn.Module:
+def build_model_from_config(
+    in_features: int,
+    config: dict,
+    input_params: dict | None = None,
+) -> torch.nn.Module:
     model_name = config["model"]["name"]
     model_params = config["model"]["params"]
 
     model_class = MODEL_MAP[model_name]
 
-    model = model_class(in_features=in_features, **model_params)
+    model = model_class(in_features=in_features, **model_params, **(input_params or {}))
 
     return model
 
 
-def make_predictions(X,
-                     model: torch.nn.Module,
-                     model_state_dict: dict,
-                     device: torch.device,
-                     ) -> list:
+def make_predictions(
+    X,
+    model: torch.nn.Module,
+    model_state_dict: dict,
+    device: torch.device,
+) -> list:
     model.load_state_dict(state_dict=model_state_dict)
     model.to(device)
     model.eval()
@@ -142,12 +148,11 @@ def main() -> None:
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    
     metadata, model_state_dict, scaler = load_artifacts(
         artifact_path=artifact_path,
         device=device,
-        )
-    
+    )
+
     features = metadata["features"]
     dataset_type = metadata["dataset_type"]
     default_test_path = Path(config["data"][dataset_type]["test_path"])
@@ -168,18 +173,16 @@ def main() -> None:
 
     X_scaled = scaler.transform(X)
 
-    model = build_model_from_config(in_features=in_features, config=config)
+    model = build_model_from_config(
+        in_features=in_features, config=config, input_params=metadata.get("model_input_params")
+    )
 
     y_pred = make_predictions(
-        X=X_scaled,
-        model=model,
-        model_state_dict=model_state_dict,
-        device=device)
-    
-    save_submission(
-        passenger_id=passenger_id,
-        y_pred=y_pred,
-        output_path=args.output_path)
+        X=X_scaled, model=model, model_state_dict=model_state_dict, device=device
+    )
+
+    save_submission(passenger_id=passenger_id, y_pred=y_pred, output_path=args.output_path)
+
 
 if __name__ == "__main__":
     main()
