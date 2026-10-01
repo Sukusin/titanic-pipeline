@@ -169,9 +169,8 @@ def main() -> None:
 
     passenger_id = test_data.get_column("PassengerId")
     X = test_data.select(features).to_numpy()
-    in_features = X.shape[1]
-
     X_scaled = scaler.transform(X)
+    in_features = X_scaled.shape[1]
 
     model = build_model_from_config(
         in_features=in_features, config=config, input_params=metadata.get("model_input_params")

@@ -217,6 +217,7 @@ def main():
         shuffle=shuffle,
         random_state=seed,
         categorical_features=categorical_features,
+        dataset_type=args.dataset_type,
     )
 
     criterion = CRITERION_MAP[criterion_name]()
@@ -264,6 +265,7 @@ def main():
         batch_size=training_batch_size,
         random_state=seed,
         categorical_features=categorical_features,
+        dataset_type=args.dataset_type,
     )
 
     final_model = model_class(

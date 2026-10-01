@@ -2,6 +2,7 @@
 
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin, clone
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.utils.validation import check_is_fitted
 
@@ -66,6 +67,8 @@ class EmbeddingPreprocessor(TransformerMixin, BaseEstimator):
 
 def model_input_params(preprocessor) -> dict:
     """Return data-derived embedding dimensions, or no extra parameters for a plain MLP."""
+    if isinstance(preprocessor, Pipeline):
+        preprocessor = preprocessor.named_steps["model_preprocessor"]
     if isinstance(preprocessor, EmbeddingPreprocessor):
         check_is_fitted(preprocessor, "encoder_")
         return preprocessor.model_input_params_
