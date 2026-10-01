@@ -9,6 +9,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils.validation import check_is_fitted
 
 from src.classic.train import build_model, build_scaler
+from src.datasets.features import TitanicFeatureTransformer
 
 METHODS = ("average", "voting_hard", "voting_soft", "stacking_linear", "stacking_ridge")
 
@@ -74,12 +75,20 @@ class OOFStackingClassifier(ClassifierMixin, BaseEstimator):
         return (self.decision_function(X) >= 0.5).astype(int)
 
 
-def build_estimators(base_configs: list[dict]) -> list[tuple[str, Pipeline]]:
+def build_estimators(
+    base_configs: list[dict], dataset_type: str, use_titanic_features: bool
+) -> list[tuple[str, Pipeline]]:
     """Wrap each base model and its scaler in a fold-local sklearn pipeline."""
     return [
         (
             f"base_{index}",
-            Pipeline([("scaler", build_scaler(config)), ("model", build_model(config))]),
+            Pipeline((
+                [("features", TitanicFeatureTransformer(dataset_type))]
+                if use_titanic_features else []
+            ) + [
+                ("scaler", build_scaler(config)),
+                ("model", build_model(config)),
+            ]),
         )
         for index, config in enumerate(base_configs)
     ]
@@ -87,7 +96,9 @@ def build_estimators(base_configs: list[dict]) -> list[tuple[str, Pipeline]]:
 
 def build_ensemble(method: str, base_configs: list[dict], config: dict):
     """Create an unfitted ensemble; all learning happens inside fit()."""
-    estimators = build_estimators(base_configs)
+    estimators = build_estimators(
+        base_configs, config.get("dataset_type", "original"), "dataset_type" in config
+    )
     if method in ("average", "voting_hard", "voting_soft"):
         return VotingClassifier(
             estimators=estimators,

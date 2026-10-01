@@ -16,6 +16,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 
+from src.datasets.features import TitanicFeatureTransformer
 from src.utils.config import load_config
 from src.utils.io import copy_file, make_run_dirs, make_run_name, save_json
 from src.utils.metrics import calculate_metrics, summarize_metrics
@@ -163,6 +164,9 @@ def run_cv(
         X_train_fold = X[train_idx]
         X_val_fold = X[val_idx]
 
+        features = TitanicFeatureTransformer(config.get("dataset_type", "original"))
+        X_train_fold = features.fit_transform(X_train_fold.to_numpy())
+        X_val_fold = features.transform(X_val_fold.to_numpy())
         scaler = build_scaler(config=config)
         scaler.fit(X_train_fold)
 
@@ -200,13 +204,15 @@ def train_final_model(
         y: pl.Series,
         config: dict,
         ):
+    features = TitanicFeatureTransformer(config.get("dataset_type", "original"))
+    X_features = features.fit_transform(X.to_numpy())
     scaler = build_scaler(config=config)
-    X_scaled = scaler.fit_transform(X)
+    X_scaled = scaler.fit_transform(X_features)
 
     model = build_model(config=config)
     model.fit(X_scaled, y)
 
-    return model, scaler
+    return model, scaler, features
 
 def save_experiment(
         run_dir: Path,
@@ -218,15 +224,18 @@ def save_experiment(
         summary: dict,
         model,
         scaler,
+        feature_transformer,
         features: list[str],
         study: optuna.Study | None = None,
         ) -> None:
     model_path = artifact_dir / "model.joblib"
     scaler_path = artifact_dir / "scaler.joblib"
+    features_path = artifact_dir / "features.joblib"
     metadata_path = artifact_dir / "metadata.json"
 
     joblib.dump(model, model_path)
     joblib.dump(scaler, scaler_path)
+    joblib.dump(feature_transformer, features_path)
 
     fold_metrics_df.write_csv(run_dir / "fold_metrics.csv")
     copy_file(src=config_path, dst=run_dir / "config.yaml")
@@ -236,8 +245,10 @@ def save_experiment(
             "features": features,
             "target": config["data"]["target"],
             "dataset_type": args.dataset_type,
+            "test_path": config["data"][args.dataset_type]["test_path"],
             "model_path": str(model_path),
             "scaler_path": str(scaler_path),
+            "features_path": str(features_path),
         },
         path=metadata_path,
     )
@@ -247,6 +258,7 @@ def save_experiment(
             "model_name": config["model"]["name"],
             "model_params": config["model"]["params"],
             "preprocessing": config["preprocessing"]["scaler"],
+            "preprocessing_version": 2,
             "dataset_type": args.dataset_type,
             "primary_metric": config["metrics"]["primary"],
             "config_path": str(config_path),
@@ -282,6 +294,9 @@ def save_experiment(
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
+    if config["metrics"]["primary"] != "f1" or "f1" not in config["metrics"]["log"]:
+        raise ValueError("Classic models require f1 as the primary and logged metric")
+    config["dataset_type"] = args.dataset_type
 
     data_config = config["data"][args.dataset_type]
     target_col = config["data"]["target"]
@@ -313,7 +328,7 @@ def main() -> None:
     run_name = make_run_name(config=config, dataset_type=args.dataset_type)
     run_dir, artifact_dir = make_run_dirs(run_name=run_name, model_type="classic")
 
-    final_model, final_scaler = train_final_model(
+    final_model, final_scaler, final_features = train_final_model(
         X=X,
         y=y,
         config=config
@@ -329,6 +344,7 @@ def main() -> None:
         summary=summary,
         model=final_model,
         scaler=final_scaler,
+        feature_transformer=final_features,
         features=X.columns,
         study=study,
         )
