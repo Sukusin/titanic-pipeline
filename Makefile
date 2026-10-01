@@ -22,7 +22,7 @@ TEST_PATH ?= data/processed/original/test_dataset.parquet
 
 .DEFAULT_GOAL := help
 .PHONY: help lint type-check docker-build process-data \
-	train-classic train-classic-all leaderboard-classic \
+	train-classic tune-classic train-classic-all leaderboard-classic \
 	submission-predictions-classic classic-pipeline \
 	train-deepnn leaderboard-deepnn submission-predictions-deepnn \
 	train-ensembles submission-predictions-ensembles test-ensembles
@@ -45,6 +45,9 @@ process-data: ## Download and preprocess the Titanic data
 
 train-classic: ## Train one classic model; set CLASSIC_MODEL and DATASET_TYPE
 	$(PYTHON) -m src.classic.train --config $(CLASSIC_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
+
+tune-classic: ## Tune and train one classic model; set CLASSIC_MODEL and DATASET_TYPE
+	$(PYTHON) -m src.classic.train --config $(CLASSIC_CONFIG_PATH) --dataset-type $(DATASET_TYPE) --tune
 
 train-classic-all: ## Train every classic model on every dataset variant
 	@for dataset in $(DATASET_TYPES); do \

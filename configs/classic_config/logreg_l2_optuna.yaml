@@ -1,0 +1,72 @@
+experiment:
+  name: "logreg_l2_optuna"
+  seed: &seed 42
+
+data:
+  target: "Survived"
+  original:
+    train_path: "data/processed/original/train_dataset.parquet"
+    test_path: "data/processed/original/test_dataset.parquet"
+  binned:
+    train_path: "data/processed/binned/train_dataset.parquet"
+    test_path: "data/processed/binned/test_dataset.parquet"
+
+validation:
+  type: "stratified_kfold"
+  n_splits: 5
+  shuffle: true
+  random_state: *seed
+
+metrics:
+  primary: "f1"
+  log:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "roc_auc"
+
+preprocessing:
+  scaler: "standard"
+
+model:
+  name: "logistic_regression"
+  params:
+    C: 1.0
+    l1_ratio: 0.0
+    solver: "lbfgs"
+    max_iter: 1000
+    tol: 0.001
+    fit_intercept: true
+    random_state: *seed
+
+optuna:
+  n_trials: 50
+  search_space:
+    C:
+      type: "float"
+      low: 0.001
+      high: 100.0
+      log: true
+    l1_ratio:
+      type: "categorical"
+      choices: [0.0]  # keep L2 regularization
+    solver:
+      type: "categorical"
+      choices: ["lbfgs", "newton-cg"]
+    max_iter:
+      type: "int"
+      low: 500
+      high: 2000
+      step: 100
+    tol:
+      type: "float"
+      low: 0.00001
+      high: 0.01
+      log: true
+    fit_intercept:
+      type: "categorical"
+      choices: [true, false]
+    random_state:
+      type: "categorical"
+      choices: [*seed]  # keep trials reproducible

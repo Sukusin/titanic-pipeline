@@ -1,7 +1,10 @@
 import argparse
+from copy import deepcopy
 from pathlib import Path
+from typing import cast
 
 import joblib
+import optuna
 import polars as pl
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
@@ -49,7 +52,66 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Choose data type (original/binned)"
     )
+    parser.add_argument(
+        "--tune",
+        action="store_true",
+        help="Tune model parameters using the config's optuna.search_space",
+    )
     return parser.parse_args()
+
+
+def suggest_params(trial: optuna.Trial, search_space: dict) -> dict:
+    params = {}
+    for name, spec in search_space.items():
+        kind = spec["type"]
+        if kind == "float":
+            params[name] = trial.suggest_float(
+                name, spec["low"], spec["high"], log=spec.get("log", False)
+            )
+        elif kind == "int":
+            params[name] = trial.suggest_int(
+                name, spec["low"], spec["high"],
+                step=spec.get("step", 1), log=spec.get("log", False)
+            )
+        elif kind == "categorical":
+            params[name] = trial.suggest_categorical(name, spec["choices"])
+        else:
+            raise ValueError(f"Unknown Optuna parameter type for {name}: {kind}")
+    return params
+
+
+def tune_model(X: pl.DataFrame, y: pl.Series, config: dict) -> tuple[dict, optuna.Study]:
+    tuning = config.get("optuna")
+    if not tuning or not tuning.get("search_space"):
+        raise ValueError("--tune requires a non-empty optuna.search_space in the config")
+    if tuning.get("n_trials", 0) < 1:
+        raise ValueError("optuna.n_trials must be a positive integer")
+
+    metric = config["metrics"]["primary"]
+    if metric not in config["metrics"]["log"]:
+        raise ValueError(f"Primary metric {metric} must be included in metrics.log")
+    unknown = set(tuning["search_space"]) - set(config["model"]["params"])
+    if unknown:
+        raise ValueError(f"Optuna parameters missing from model.params: {sorted(unknown)}")
+
+    def objective(trial: optuna.Trial) -> float:
+        trial_config = deepcopy(config)
+        trial_config["model"]["params"].update(suggest_params(trial, tuning["search_space"]))
+        metrics = run_cv(X, y, trial_config, [metric])
+        score = cast(float | None, metrics.get_column(metric).mean())
+        if score is None:
+            raise ValueError(f"Cannot optimize metric with no values: {metric}")
+        return float(score)
+
+    study = optuna.create_study(
+        direction="maximize",
+        sampler=optuna.samplers.TPESampler(seed=config["experiment"]["seed"]),
+    )
+    study.optimize(objective, n_trials=tuning["n_trials"])
+
+    tuned_config = deepcopy(config)
+    tuned_config["model"]["params"].update(study.best_params)
+    return tuned_config, study
 
 def make_folds(
         X: pl.DataFrame,
@@ -157,6 +219,7 @@ def save_experiment(
         model,
         scaler,
         features: list[str],
+        study: optuna.Study | None = None,
         ) -> None:
     model_path = artifact_dir / "model.joblib"
     scaler_path = artifact_dir / "scaler.joblib"
@@ -179,8 +242,7 @@ def save_experiment(
         path=metadata_path,
     )
 
-    save_json(
-        data={
+    summary_data = {
             "experiment_name": config["experiment"]["name"],
             "model_name": config["model"]["name"],
             "model_params": config["model"]["params"],
@@ -192,9 +254,26 @@ def save_experiment(
             "model_path": str(model_path),
             "scaler_path": str(scaler_path),
             **summary,
-        },
-        path=run_dir / "summary.json",
-    )
+        }
+    if study is not None:
+        summary_data["optuna"] = {
+            "best_params": study.best_params,
+            "best_value": study.best_value,
+            "n_trials": len(study.trials),
+        }
+        save_json(
+            data={"trials": [
+                {
+                    "number": trial.number,
+                    "value": trial.value,
+                    "params": trial.params,
+                    "state": trial.state.name,
+                }
+                for trial in study.trials
+            ]},
+            path=run_dir / "optuna_trials.json",
+        )
+    save_json(data=summary_data, path=run_dir / "summary.json")
     print("=="*25)
     print(f"Metadata saved to: {metadata_path}")
     print(f"Summary saved to: {run_dir}/summary.json")
@@ -214,6 +293,10 @@ def main() -> None:
 
     X = train_dataset.drop(target_col)
     y = train_dataset.get_column(target_col)
+
+    study = None
+    if args.tune:
+        config, study = tune_model(X, y, config)
 
     fold_metrics_df = run_cv(
         X=X,
@@ -246,7 +329,8 @@ def main() -> None:
         summary=summary,
         model=final_model,
         scaler=final_scaler,
-        features=X.columns
+        features=X.columns,
+        study=study,
         )
 
 if __name__ == "__main__":
