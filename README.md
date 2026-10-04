@@ -21,7 +21,9 @@
 | Random Forest | 0.7636 ± 0.0289 | 0.8305 |
 | Logistic Regression L2 | 0.7384 ± 0.0283 | 0.8070 |
 
-XGBoost показал лучшую среднюю F1; MLP улучшает линейный baseline. В отдельном [сравнении ансамблей](reports/titanic/ensemble_results.md) Soft Voting получил F1 0.7681: заметного прироста относительно CatBoost не обнаружено. Полное сравнение классических моделей на `original` и `binned` — в [отчёте Titanic](reports/titanic/baseline_results.md).
+XGBoost показал лучшую среднюю F1; MLP улучшает линейный baseline. Soft Voting получил F1 0.7681: заметного прироста относительно CatBoost не обнаружено.
+
+![alt text](assets/titanic-submissions.png)
 
 ### House Prices
 
@@ -34,7 +36,9 @@ XGBoost показал лучшую среднюю F1; MLP улучшает ли
 | Linear Regression | 0.1512 ± 0.0470 |
 | MLP (`model_one`) | 0.1702 ± 0.0301 |
 
-CatBoost — лучший из проверенных вариантов House Prices. Простая MLP, перенесённая из Titanic, уступает всем классическим моделям в этом запуске. Модели обучаются на `log1p(SalePrice)`; предсказания возвращаются в исходный масштаб. Подробности: [классические модели](reports/house_price/classic_results.md), [нейросеть](reports/house_price/deepnn_results.md).
+CatBoost — лучший из проверенных вариантов House Prices. Простая MLP, перенесённая из Titanic, уступает всем классическим моделям в этом запуске. Модели обучаются на `log1p(SalePrice)`; предсказания возвращаются в исходный масштаб.
+
+![alt text](assets/house-submissions.png)
 
 ## Установка и данные
 
