@@ -1,0 +1,39 @@
+experiment:
+  name: model_one
+  seed: 42
+  device: auto
+
+data:
+  train_path: data/house_price/processed/raw/train_dataset.csv
+  test_path: data/house_price/processed/raw/test_dataset.csv
+  target: SalePrice
+  id: Id
+
+validation:
+  n_splits: 5
+  shuffle: true
+
+metrics:
+  primary: rmsle
+  log: [rmsle, rmse, mae]
+
+model:
+  name: model_one
+  params:
+    hidden_features: 64
+    out_features: 1
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+scheduler:
+  name: cosine
+  params:
+    T_max: 40
+    eta_min: 0.00001
+
+training:
+  epochs: 40
+  batch_size: 64

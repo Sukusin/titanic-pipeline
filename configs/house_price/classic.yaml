@@ -1,0 +1,39 @@
+experiment:
+  seed: 42
+
+data:
+  train_path: data/house_price/processed/raw/train_dataset.csv
+  test_path: data/house_price/processed/raw/test_dataset.csv
+  target: SalePrice
+  id: Id
+
+validation:
+  n_splits: 5
+  shuffle: true
+
+metrics:
+  primary: rmsle
+  log: [rmsle, rmse, mae]
+
+models:
+  linear_regression: {}
+  ridge:
+    alpha: 10.0
+  random_forest:
+    n_estimators: 200
+    max_features: 0.8
+    min_samples_leaf: 2
+    n_jobs: -1
+  catboost:
+    iterations: 300
+    depth: 6
+    learning_rate: 0.05
+    verbose: false
+    allow_writing_files: false
+  xgboost:
+    n_estimators: 300
+    max_depth: 4
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    n_jobs: -1

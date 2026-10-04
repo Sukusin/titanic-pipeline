@@ -1,7 +1,7 @@
 PYTHON := uv run python
 
-CLASSIC_CONFIG_DIR := configs/classic_config
-DEEPNN_CONFIG_DIR := configs/deepnn_config
+CLASSIC_CONFIG_DIR := configs/titanic/classic
+DEEPNN_CONFIG_DIR = configs/$(COMPETITION)/deepnn
 
 CLASSIC_MODELS := \
 	knn logreg_l1 logreg_l2 logreg_elasticnet \
@@ -14,20 +14,22 @@ DEEPNN_MODEL ?= model_one
 DATASET_TYPE ?= original
 
 CLASSIC_CONFIG_PATH := $(CLASSIC_CONFIG_DIR)/$(CLASSIC_MODEL).yaml
-DEEPNN_CONFIG_PATH := $(DEEPNN_CONFIG_DIR)/$(DEEPNN_MODEL).yaml
-ENSEMBLE_CONFIG_PATH ?= configs/ensemble_config/ensembles.yaml
+DEEPNN_CONFIG_PATH = $(DEEPNN_CONFIG_DIR)/$(DEEPNN_MODEL).yaml
+ENSEMBLE_CONFIG_PATH ?= configs/titanic/ensembles/ensembles.yaml
 
 CLASSIC_PIPELINE_MODELS ?= $(CLASSIC_MODELS)
 CLASSIC_PIPELINE_DATASETS ?= $(DATASET_TYPES)
+HOUSE_PRICE_PIPELINE_MODELS ?= linear_regression ridge random_forest catboost xgboost
 TEST_PATH ?=
+COMPETITION ?= titanic
 
 
 .DEFAULT_GOAL := help
-.PHONY: help lint type-check docker-build process-data \
+.PHONY: help lint type-check docker-build process-data pipeline \
 	train-classic tune-classic train-classic-all leaderboard-classic \
 	submission-predictions-classic classic-pipeline \
-	train-deepnn leaderboard-deepnn submission-predictions-deepnn \
-	train-ensembles submission-predictions-ensembles test-ensembles
+	train-deepnn leaderboard-deepnn submission-predictions-deepnn deepnn-pipeline \
+	train-ensembles submission-predictions-ensembles
 
 help: ## Show available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -42,14 +44,17 @@ type-check: ## Run static type checking
 docker-build: ## Build the Docker image
 	docker build -t titanic-kaggle .
 
-process-data: ## Download and preprocess the Titanic data
-	$(PYTHON) -m src.datasets.process_dataset
+process-data: ## Prepare data; set COMPETITION=titanic or house_price
+	$(PYTHON) -m src.$(COMPETITION).datasets.process_dataset
+
+pipeline: ## Prepare, train, rank, and predict; set COMPETITION
+	$(PYTHON) -m src.main --competition $(COMPETITION) $(if $(filter titanic,$(COMPETITION)),--models $(CLASSIC_PIPELINE_MODELS) --dataset-types $(CLASSIC_PIPELINE_DATASETS),--models $(HOUSE_PRICE_PIPELINE_MODELS))
 
 train-classic: ## Train one classic model; set CLASSIC_MODEL and DATASET_TYPE
-	$(PYTHON) -m src.classic.train --config $(CLASSIC_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
+	$(PYTHON) -m src.titanic.classic.train --config $(CLASSIC_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
 
 tune-classic: ## Tune and train one classic model; set CLASSIC_MODEL and DATASET_TYPE
-	$(PYTHON) -m src.classic.train --config $(CLASSIC_CONFIG_PATH) --dataset-type $(DATASET_TYPE) --tune
+	$(PYTHON) -m src.titanic.classic.train --config $(CLASSIC_CONFIG_PATH) --dataset-type $(DATASET_TYPE) --tune
 
 train-classic-all: ## Train every classic model on every dataset variant
 	@for dataset in $(DATASET_TYPES); do \
@@ -59,28 +64,28 @@ train-classic-all: ## Train every classic model on every dataset variant
 	done
 
 leaderboard-classic: ## Build the classic-model leaderboard
-	$(PYTHON) -m src.classic.make_leaderboard
+	$(PYTHON) -m src.titanic.classic.make_leaderboard
 
 submission-predictions-classic: ## Create a classic-model Kaggle submission
-	$(PYTHON) -m src.classic.submission_predictions $(if $(TEST_PATH),--test-path $(TEST_PATH),)
+	$(PYTHON) -m src.titanic.classic.submission_predictions $(if $(TEST_PATH),--test-path $(TEST_PATH),)
 
-classic-pipeline: ## Prepare data, train classic models, rank by F1, create submission
-	$(PYTHON) -m src.main --models $(CLASSIC_PIPELINE_MODELS) --dataset-types $(CLASSIC_PIPELINE_DATASETS)
+classic-pipeline: pipeline ## Alias for the main pipeline
 
-train-deepnn: ## Train one neural network; set DEEPNN_MODEL and DATASET_TYPE
-	$(PYTHON) -m src.nn.train --config $(DEEPNN_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
+train-deepnn: ## Train one neural network; set COMPETITION and DEEPNN_MODEL
+	$(PYTHON) -m src.$(COMPETITION).nn.train --config $(DEEPNN_CONFIG_PATH) $(if $(filter titanic,$(COMPETITION)),--dataset-type $(DATASET_TYPE),)
 
-leaderboard-deepnn: ## Build the neural-network leaderboard
-	$(PYTHON) -m src.nn.make_leaderboard
+leaderboard-deepnn: ## Build the selected competition's neural-network leaderboard
+	$(PYTHON) -m src.$(COMPETITION).nn.make_leaderboard
 
 submission-predictions-deepnn: leaderboard-deepnn ## Create a neural-network Kaggle submission
-	$(PYTHON) -m src.nn.submission_predictions
+	$(PYTHON) -m src.$(COMPETITION).nn.submission_predictions
+
+deepnn-pipeline: process-data ## Prepare data, train a DNN, rank and create a submission
+	$(MAKE) --no-print-directory train-deepnn COMPETITION=$(COMPETITION) DEEPNN_MODEL=$(DEEPNN_MODEL) DATASET_TYPE=$(DATASET_TYPE)
+	$(MAKE) --no-print-directory submission-predictions-deepnn COMPETITION=$(COMPETITION)
 
 train-ensembles: ## Compare averaging, voting and OOF stacking; save models and submission
-	$(PYTHON) -m src.ensembles.train --config $(ENSEMBLE_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
+	$(PYTHON) -m src.titanic.ensembles.train --config $(ENSEMBLE_CONFIG_PATH) --dataset-type $(DATASET_TYPE)
 
 submission-predictions-ensembles: ## Create a submission from the best saved ensemble
-	$(PYTHON) -m src.ensembles.submission_predictions
-
-test-ensembles: ## Check ensemble predictions and OOF isolation
-	$(PYTHON) -m unittest discover -s tests -p 'test_ensembles.py'
+	$(PYTHON) -m src.titanic.ensembles.submission_predictions

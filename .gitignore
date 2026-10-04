@@ -14,12 +14,11 @@ wheels/
 .mypy_cache
 
 test.py
-logs/classic/*
-logs/deepnn/*
+logs/titanic/
 catboost_info
-models/classic/*
-models/deepnn/*
-logs/ensembles/*
-models/ensembles/*
+models/titanic/
+data/house_price/processed/
+logs/house_price/
+models/house_price/
 mlflow.db
 mlruns

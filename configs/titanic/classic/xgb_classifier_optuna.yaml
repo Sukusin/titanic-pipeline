@@ -1,0 +1,93 @@
+experiment:
+  name: "xgb_classifier_optuna"
+  seed: &seed 42
+
+data:
+  target: "Survived"
+  original:
+    train_path: "data/titanic/processed/raw/train_dataset.parquet"
+    test_path: "data/titanic/processed/raw/test_dataset.parquet"
+  binned:
+    train_path: "data/titanic/processed/raw/train_dataset.parquet"
+    test_path: "data/titanic/processed/raw/test_dataset.parquet"
+
+validation:
+  type: "stratified_kfold"
+  n_splits: 5
+  shuffle: true
+  random_state: *seed
+
+metrics:
+  primary: "f1"
+  log:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "roc_auc"
+
+preprocessing:
+  scaler: "standard"
+
+model:
+  name: "xgb_classifier"
+  params:
+    n_estimators: 300
+    learning_rate: 0.03
+    max_depth: 3
+    min_child_weight: 2
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_alpha: 0.0
+    reg_lambda: 1.0
+    objective: "binary:logistic"
+    eval_metric: "logloss"
+    random_state: *seed
+
+optuna:
+  n_trials: 50
+  search_space:
+    n_estimators:
+      type: "int"
+      low: 100
+      high: 600
+      step: 50
+    learning_rate:
+      type: "float"
+      low: 0.01
+      high: 0.2
+      log: true
+    max_depth:
+      type: "int"
+      low: 2
+      high: 6
+    min_child_weight:
+      type: "int"
+      low: 1
+      high: 10
+    subsample:
+      type: "float"
+      low: 0.6
+      high: 1.0
+    colsample_bytree:
+      type: "float"
+      low: 0.6
+      high: 1.0
+    reg_alpha:
+      type: "float"
+      low: 0.0
+      high: 5.0
+    reg_lambda:
+      type: "float"
+      low: 0.01
+      high: 10.0
+      log: true
+    objective:
+      type: "categorical"
+      choices: ["binary:logistic"]
+    eval_metric:
+      type: "categorical"
+      choices: ["logloss"]
+    random_state:
+      type: "categorical"
+      choices: [*seed]

@@ -1,0 +1,58 @@
+experiment:
+  name: embedding_model
+  seed: &seed 42
+  device: auto
+
+data:
+  target: Survived
+  original:
+    train_path: data/titanic/processed/raw/train_dataset.parquet
+    test_path: data/titanic/processed/raw/test_dataset.parquet
+  binned:
+    train_path: data/titanic/processed/raw/train_dataset.parquet
+    test_path: data/titanic/processed/raw/test_dataset.parquet
+
+validation:
+  type: stratified_kfold
+  n_splits: 5
+  shuffle: true
+  random_state: *seed
+
+preprocessing:
+  scaler: standard
+  categorical_features:
+    original: [Pclass, SexCode, EmbarkedCode, TitleCode, IsSingleCode]
+    binned: [Pclass, SexCode, AgeBinCode, FareBinCode, EmbarkedCode, TitleCode, IsSingleCode]
+
+metrics:
+  primary: f1
+  log: [accuracy, precision, recall, f1, roc_auc]
+
+model:
+  name: embedding_model
+  params:
+    hidden_features: [32, 16]
+    embedding_dims: 4
+    out_features: 1
+    activation: gelu
+    batch_norm: false
+    dropout_rate: 0.1
+
+criterion:
+  name: bce_with_logits
+
+optimizer:
+  name: adamw
+  params:
+    lr: 0.001
+    weight_decay: 0.01
+
+scheduler:
+  name: cosine
+  params:
+    T_max: 50
+    eta_min: 0.00001
+
+training:
+  epochs: 50
+  batch_size: 32

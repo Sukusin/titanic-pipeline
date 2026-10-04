@@ -8,3 +8,4 @@ models/
 submissions/
 catboost_info/
 .git/
+data/**/processed/

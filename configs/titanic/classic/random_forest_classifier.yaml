@@ -1,0 +1,44 @@
+experiment:
+  name: "random_forest_classifier"
+  seed: &seed 42
+
+data:
+  target: "Survived"
+  original:
+    train_path: "data/titanic/processed/raw/train_dataset.parquet"
+    test_path: "data/titanic/processed/raw/test_dataset.parquet"
+  binned:
+    train_path: "data/titanic/processed/raw/train_dataset.parquet"
+    test_path: "data/titanic/processed/raw/test_dataset.parquet"
+
+validation:
+  type: "stratified_kfold"
+  n_splits: 5
+  shuffle: true
+  random_state: *seed
+
+metrics:
+  primary: "f1"
+  log:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "roc_auc"
+
+preprocessing:
+  scaler: "standard"
+
+model:
+  name: "random_forest_classifier"
+  params:
+    n_estimators: 300
+    criterion: "gini"
+    max_depth: 5
+    min_samples_split: 8
+    min_samples_leaf: 3
+    max_features: "sqrt"
+    bootstrap: true
+    class_weight: null
+    n_jobs: -1
+    random_state: *seed

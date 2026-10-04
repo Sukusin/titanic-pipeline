@@ -2,19 +2,22 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+ENV PATH="/app/.venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    make \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
-    
+
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 
 RUN uv sync --frozen --no-dev
 
 COPY src ./src
 COPY configs ./configs
-COPY data/processed ./data/processed
+COPY data ./data
 COPY Makefile .
 
-CMD ["uv", "run", "python", "-m", "src.classic.make_leaderboard"]
+CMD ["python", "-m", "src.main", "--competition", "titanic", "--models", "logreg_l2", "--dataset-types", "original"]

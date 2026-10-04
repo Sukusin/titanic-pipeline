@@ -1,0 +1,356 @@
+import argparse
+from copy import deepcopy
+from pathlib import Path
+from typing import cast
+
+import joblib
+import optuna
+import polars as pl
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+from xgboost import XGBClassifier
+
+from src.titanic.datasets.features import TitanicFeatureTransformer
+from src.utils.config import load_config
+from src.utils.io import copy_file, make_run_dirs, make_run_name, save_json
+from src.utils.metrics import calculate_metrics, summarize_metrics
+from src.utils.seed import set_seed
+
+MODEL_MAP = {
+    "logistic_regression":      LogisticRegression,
+    "knn":                      KNeighborsClassifier,
+    "decision_tree_classifier": DecisionTreeClassifier,
+    "random_forest_classifier": RandomForestClassifier,
+    "catboost_classifier":      CatBoostClassifier,
+    "xgb_classifier":           XGBClassifier,
+    "lgbm_classifier":          LGBMClassifier,
+}
+
+SCALER_MAP = {
+    "minmax": MinMaxScaler,
+    "standard": StandardScaler
+}
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="Path to experiment config.yaml"
+    )
+    parser.add_argument(
+        "--dataset-type",
+        type=str,
+        choices= ["original", "binned"],
+        required=True,
+        help="Choose data type (original/binned)"
+    )
+    parser.add_argument(
+        "--tune",
+        action="store_true",
+        help="Tune model parameters using the config's optuna.search_space",
+    )
+    return parser.parse_args()
+
+
+def suggest_params(trial: optuna.Trial, search_space: dict) -> dict:
+    params = {}
+    for name, spec in search_space.items():
+        kind = spec["type"]
+        if kind == "float":
+            params[name] = trial.suggest_float(
+                name, spec["low"], spec["high"], log=spec.get("log", False)
+            )
+        elif kind == "int":
+            params[name] = trial.suggest_int(
+                name, spec["low"], spec["high"],
+                step=spec.get("step", 1), log=spec.get("log", False)
+            )
+        elif kind == "categorical":
+            params[name] = trial.suggest_categorical(name, spec["choices"])
+        else:
+            raise ValueError(f"Unknown Optuna parameter type for {name}: {kind}")
+    return params
+
+
+def tune_model(X: pl.DataFrame, y: pl.Series, config: dict) -> tuple[dict, optuna.Study]:
+    tuning = config.get("optuna")
+    if not tuning or not tuning.get("search_space"):
+        raise ValueError("--tune requires a non-empty optuna.search_space in the config")
+    if tuning.get("n_trials", 0) < 1:
+        raise ValueError("optuna.n_trials must be a positive integer")
+
+    metric = config["metrics"]["primary"]
+    if metric not in config["metrics"]["log"]:
+        raise ValueError(f"Primary metric {metric} must be included in metrics.log")
+    unknown = set(tuning["search_space"]) - set(config["model"]["params"])
+    if unknown:
+        raise ValueError(f"Optuna parameters missing from model.params: {sorted(unknown)}")
+
+    def objective(trial: optuna.Trial) -> float:
+        trial_config = deepcopy(config)
+        trial_config["model"]["params"].update(suggest_params(trial, tuning["search_space"]))
+        metrics = run_cv(X, y, trial_config, [metric])
+        score = cast(float | None, metrics.get_column(metric).mean())
+        if score is None:
+            raise ValueError(f"Cannot optimize metric with no values: {metric}")
+        return float(score)
+
+    study = optuna.create_study(
+        direction="maximize",
+        sampler=optuna.samplers.TPESampler(seed=config["experiment"]["seed"]),
+    )
+    study.optimize(objective, n_trials=tuning["n_trials"])
+
+    tuned_config = deepcopy(config)
+    tuned_config["model"]["params"].update(study.best_params)
+    return tuned_config, study
+
+def make_folds(
+        X: pl.DataFrame,
+        y: pl.Series,
+        n_split: int = 5,
+        shuffle: bool = True,
+        random_state: int = 42
+        ) -> list[tuple]:
+    skf =  StratifiedKFold(
+        n_splits=n_split,
+        shuffle=shuffle,
+        random_state=random_state
+        )
+    
+    folds = []
+
+    for train_idx, val_idx in skf.split(X, y):
+        folds.append((train_idx.tolist(), val_idx.tolist()))
+    return folds
+
+def build_scaler(config: dict):
+    scaler_name = config["preprocessing"]["scaler"]
+    scaler_class = SCALER_MAP[scaler_name]
+    scaler = scaler_class()
+    if config["model"]["name"] == "lgbm_classifier":
+        scaler.set_output(transform="pandas")
+    return scaler
+
+def build_model(config: dict):
+    model_name = config["model"]["name"]
+    model_params = config["model"]["params"]
+
+    model_class = MODEL_MAP[model_name]
+    return model_class(**model_params)
+
+def run_cv(
+        X: pl.DataFrame,
+        y: pl.Series,
+        config: dict,
+        metric_names: list[str]
+        ) -> pl.DataFrame:
+    folds = make_folds(
+        X,
+        y,
+        n_split=config["validation"]["n_splits"],
+        shuffle=config["validation"]["shuffle"],
+        random_state= config["validation"]["random_state"])
+
+    fold_rows = []
+
+    for i, (train_idx, val_idx) in enumerate(folds, start=1):
+        X_train_fold = X[train_idx]
+        X_val_fold = X[val_idx]
+
+        features = TitanicFeatureTransformer(config.get("dataset_type", "original"))
+        X_train_fold = features.fit_transform(X_train_fold.to_numpy())
+        X_val_fold = features.transform(X_val_fold.to_numpy())
+        scaler = build_scaler(config=config)
+        scaler.fit(X_train_fold)
+
+        X_train_fold = scaler.transform(X_train_fold)
+        X_val_fold = scaler.transform(X_val_fold)
+
+        y_train_fold = y[train_idx]
+        y_val_fold = y[val_idx]
+
+        model = build_model(config=config)
+        model.fit(X_train_fold, y_train_fold)
+
+        val_pred = model.predict(X_val_fold)
+
+        if hasattr(model, "predict_proba"):
+            val_proba = model.predict_proba(X_val_fold)[:, 1]
+        else:
+            val_proba = None
+
+        fold_metrics = calculate_metrics(
+            y_true=y_val_fold,
+            y_pred=val_pred,
+            y_proba=val_proba,
+            metric_names=metric_names
+            )
+        fold_row = {
+            "fold": i,
+            **fold_metrics
+        }
+        fold_rows.append(fold_row)
+    return pl.DataFrame(fold_rows)
+
+def train_final_model(
+        X: pl.DataFrame,
+        y: pl.Series,
+        config: dict,
+        ):
+    features = TitanicFeatureTransformer(config.get("dataset_type", "original"))
+    X_features = features.fit_transform(X.to_numpy())
+    scaler = build_scaler(config=config)
+    X_scaled = scaler.fit_transform(X_features)
+
+    model = build_model(config=config)
+    model.fit(X_scaled, y)
+
+    return model, scaler, features
+
+def save_experiment(
+        run_dir: Path,
+        artifact_dir: Path,
+        config_path: Path,
+        config: dict,
+        args: argparse.Namespace,
+        fold_metrics_df: pl.DataFrame,
+        summary: dict,
+        model,
+        scaler,
+        feature_transformer,
+        features: list[str],
+        study: optuna.Study | None = None,
+        ) -> None:
+    model_path = artifact_dir / "model.joblib"
+    scaler_path = artifact_dir / "scaler.joblib"
+    features_path = artifact_dir / "features.joblib"
+    metadata_path = artifact_dir / "metadata.json"
+
+    joblib.dump(model, model_path)
+    joblib.dump(scaler, scaler_path)
+    joblib.dump(feature_transformer, features_path)
+
+    fold_metrics_df.write_csv(run_dir / "fold_metrics.csv")
+    copy_file(src=config_path, dst=run_dir / "config.yaml")
+
+    save_json(
+        data={
+            "features": features,
+            "target": config["data"]["target"],
+            "dataset_type": args.dataset_type,
+            "test_path": config["data"][args.dataset_type]["test_path"],
+            "model_path": str(model_path),
+            "scaler_path": str(scaler_path),
+            "features_path": str(features_path),
+        },
+        path=metadata_path,
+    )
+
+    summary_data = {
+            "experiment_name": config["experiment"]["name"],
+            "model_name": config["model"]["name"],
+            "model_params": config["model"]["params"],
+            "preprocessing": config["preprocessing"]["scaler"],
+            "preprocessing_version": 2,
+            "dataset_type": args.dataset_type,
+            "primary_metric": config["metrics"]["primary"],
+            "config_path": str(config_path),
+            "artifact_dir": str(artifact_dir),
+            "model_path": str(model_path),
+            "scaler_path": str(scaler_path),
+            **summary,
+        }
+    if study is not None:
+        summary_data["optuna"] = {
+            "best_params": study.best_params,
+            "best_value": study.best_value,
+            "n_trials": len(study.trials),
+        }
+        save_json(
+            data={"trials": [
+                {
+                    "number": trial.number,
+                    "value": trial.value,
+                    "params": trial.params,
+                    "state": trial.state.name,
+                }
+                for trial in study.trials
+            ]},
+            path=run_dir / "optuna_trials.json",
+        )
+    save_json(data=summary_data, path=run_dir / "summary.json")
+    print("=="*25)
+    print(f"Metadata saved to: {metadata_path}")
+    print(f"Summary saved to: {run_dir}/summary.json")
+    print("=="*25)
+
+def main() -> None:
+    args = parse_args()
+    config = load_config(args.config)
+    if config["metrics"]["primary"] != "f1" or "f1" not in config["metrics"]["log"]:
+        raise ValueError("Classic models require f1 as the primary and logged metric")
+    config["dataset_type"] = args.dataset_type
+
+    data_config = config["data"][args.dataset_type]
+    target_col = config["data"]["target"]
+    metric_names = config["metrics"]["log"]
+    seed = config["experiment"]["seed"]
+    set_seed(seed=seed)
+
+    train_dataset = pl.read_parquet(data_config["train_path"])
+
+    X = train_dataset.drop(target_col)
+    y = train_dataset.get_column(target_col)
+
+    study = None
+    if args.tune:
+        config, study = tune_model(X, y, config)
+
+    fold_metrics_df = run_cv(
+        X=X,
+        y=y,
+        config=config,
+        metric_names=metric_names
+        )
+    
+    summary = summarize_metrics(
+        fold_metrics_df=fold_metrics_df,
+        metric_names=metric_names,
+        )
+    
+    run_name = make_run_name(config=config, dataset_type=args.dataset_type)
+    run_dir, artifact_dir = make_run_dirs(run_name=run_name, model_type="titanic/classic")
+
+    final_model, final_scaler, final_features = train_final_model(
+        X=X,
+        y=y,
+        config=config
+        )
+    
+    save_experiment(
+        run_dir=run_dir,
+        artifact_dir=artifact_dir,
+        config_path=args.config,
+        config=config,
+        args=args,
+        fold_metrics_df=fold_metrics_df,
+        summary=summary,
+        model=final_model,
+        scaler=final_scaler,
+        feature_transformer=final_features,
+        features=X.columns,
+        study=study,
+        )
+
+if __name__ == "__main__":
+    main()

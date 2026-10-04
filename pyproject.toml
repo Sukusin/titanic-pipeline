@@ -1,7 +1,7 @@
 [project]
 name = "titanic-kaggle"
 version = "0.1.0"
-description = "Repository for Titanic Kaggle competition"
+description = "Pipelines for Titanic and House Prices Kaggle competitions"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
