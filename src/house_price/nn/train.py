@@ -21,6 +21,7 @@ from src.utils.seed import set_seed
 
 
 def train(config: dict, config_path: Path) -> tuple[Path, Path]:
+    """Cross-validate the network, then fit and save a final model on all rows."""
     seed = config["experiment"]["seed"]
     set_seed(seed)
     device_name = config["experiment"]["device"]
@@ -98,6 +99,7 @@ def train(config: dict, config_path: Path) -> tuple[Path, Path]:
 
 
 def main() -> None:
+    """Load the selected network configuration and start training."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path,
                         default=Path("configs/house_price/deepnn/model_one.yaml"))

@@ -23,6 +23,7 @@ class OOFStackingClassifier(ClassifierMixin, BaseEstimator):
     """
 
     def __init__(self, estimators, final_estimator, cv=5, random_state=42, n_jobs=1):
+        """Store base estimators, meta-model, and inner cross-validation settings."""
         self.estimators = estimators
         self.final_estimator = final_estimator
         self.cv = cv
@@ -44,6 +45,7 @@ class OOFStackingClassifier(ClassifierMixin, BaseEstimator):
         for fold, (_, val_idx) in enumerate(splits, start=1):
             self.oof_fold_[val_idx] = fold
 
+        # Each meta-model row comes from base models that never saw that row during fit.
         self.oof_predictions_ = np.column_stack(
             [
                 cross_val_predict(

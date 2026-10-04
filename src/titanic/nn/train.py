@@ -31,6 +31,7 @@ CRITERION_MAP = {
 }
 
 def parse_args() -> argparse.Namespace:
+    """Parse the network configuration and feature dataset variant."""
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -61,6 +62,7 @@ def save_experiment(
     scaler,
     features: list[str],
 ) -> None:
+    """Save network weights, preprocessing, histories, and run metadata."""
     model_path = artifact_dir / "model.pt"
     scaler_path = artifact_dir / "scaler.joblib"
     metadata_path = artifact_dir / "metadata.json"
@@ -120,6 +122,7 @@ def save_experiment(
 
 
 def main():
+    """Cross-validate and fit the configured Titanic neural network."""
     args = parse_args()
     with open(args.config) as f:
         config = yaml.safe_load(f)
@@ -130,27 +133,20 @@ def main():
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # data config
     data_config = config["data"]
     train_path = data_config[args.dataset_type]["train_path"]
     target_col = data_config["target"]
 
-    # validation config
     validation_config = config["validation"]
-    # val_type = validation_config["type"]
     n_splits = validation_config["n_splits"]
     shuffle = validation_config["shuffle"]
 
-    # preprocessing config
     preprocessing_config = config["preprocessing"]
     scaler_name = preprocessing_config["scaler"]
 
-    # metrics config
     metrics_config = config["metrics"]
-    # primary_metric = metrics_config["primary"]
     metric_names = metrics_config["log"]
 
-    # model config
     model = config["model"]["name"]
     model_class = MODEL_MAP[model]
     model_params = config["model"]["params"]
@@ -162,14 +158,11 @@ def main():
         if not categorical_features:
             raise ValueError("Embedding models require categorical_features for the dataset type.")
 
-    # criterion config
     criterion_name = config["criterion"]["name"]
 
-    # optimizer config
     optimizer_name = config["optimizer"]["name"]
     optimizer_params = config["optimizer"]["params"]
 
-    # training config
     training_epochs = config["training"]["epochs"]
     training_batch_size = config["training"]["batch_size"]
 

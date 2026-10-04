@@ -10,6 +10,7 @@ OUTPUT_PATH = LOGS_DIR / "leaderboard.csv"
 
 
 def main() -> None:
+    """Collect classic model summaries and rank runs by mean RMSLE."""
     rows = []
     for path in LOGS_DIR.glob("*/summary.json"):
         with path.open() as file:

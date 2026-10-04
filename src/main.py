@@ -14,6 +14,7 @@ HOUSE_PRICE_MODELS = ["linear_regression", "ridge", "random_forest", "catboost",
 
 
 def main() -> None:
+    """Run data preparation, training, ranking, and submission for one competition."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--competition", choices=["titanic", "house_price"], default="titanic")
     parser.add_argument("--models", nargs="+")

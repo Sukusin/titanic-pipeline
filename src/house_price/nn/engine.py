@@ -12,6 +12,7 @@ def train_step(
     model: torch.nn.Module, loader: DataLoader, optimizer: torch.optim.Optimizer,
     criterion: torch.nn.Module, device: torch.device,
 ) -> float:
+    """Train one epoch and return mean squared error in log-price space."""
     model.train()
     total_loss = 0.0
     total_count = 0
@@ -30,6 +31,7 @@ def validate(
     model: torch.nn.Module, loader: DataLoader, criterion: torch.nn.Module,
     device: torch.device,
 ) -> dict[str, float]:
+    """Evaluate log-price loss and price-scale regression metrics."""
     model.eval()
     total_loss = 0.0
     total_count = 0

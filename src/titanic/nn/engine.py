@@ -13,6 +13,7 @@ def train_step(
         optimizer: torch.optim.Optimizer,
         device: torch.device
         ) -> tuple[float, float]:
+    """Train one epoch and return sample-weighted loss and accuracy."""
     model.train().to(device)
 
     train_loss = 0.0
@@ -48,6 +49,7 @@ def val_step(
         device: torch.device,
         metric_names: list[str],
         ) -> dict[str, float | None]:
+    """Evaluate loss and classification metrics without gradient updates."""
     model.eval().to(device)
 
     val_loss = 0.0
@@ -97,6 +99,7 @@ def fit(
         epochs: int,
         metric_names: list[str],
         ) -> dict[str, list[float | None]]:
+    """Train with validation and collect per-epoch metrics."""
     results: dict[str, list[float | None]] = {
         "train_loss": [],
         "train_accuracy": [],
@@ -130,7 +133,6 @@ def fit(
             results.setdefault(f"val_{metric_name}", [])
             results[f"val_{metric_name}"].append(metric_value)
     print(
-        # f"Epoch {epoch+1}/{epochs} | ",
         f"Train loss: {train_loss:.04f} | "
         f"Train accuracy: {train_accuracy:.04f} | "
         f"Val loss: {val_metrics["loss"]:.04f} | "
@@ -147,6 +149,7 @@ def fit_final(
         device: torch.device,
         epochs: int,
         ) -> dict[str, list[float]]:
+    """Train the final model without a validation loader."""
     results: dict[str, list[float]] = {
         "train_loss": [],
         "train_accuracy": [],

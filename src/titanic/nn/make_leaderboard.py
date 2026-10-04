@@ -28,6 +28,7 @@ LEADERBOARD_COLUMNS = [
 
 
 def main() -> None:
+    """Collect neural-network summaries into the Titanic leaderboard."""
     rows = []
 
     for summary_path in LOGS_DIR.glob("*/summary.json"):

@@ -20,6 +20,7 @@ MODEL_MAP = {
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse optional artifacts, test data, and output paths."""
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -55,6 +56,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def get_artifact_config_path(args: argparse.Namespace) -> tuple:
+    """Use explicit paths or select the best run from the leaderboard."""
     if args.artifact_path and args.config_path:
         return args.artifact_path, args.config_path
     else:
@@ -76,6 +78,7 @@ def load_artifacts(
     artifact_path: str | Path,
     device: torch.device,
 ):
+    """Restore model weights, preprocessing, and training metadata."""
     artifact_path = Path(artifact_path)
 
     metadata_path = artifact_path / "metadata.json"
@@ -95,6 +98,7 @@ def build_model_from_config(
     config: dict,
     input_params: dict | None = None,
 ) -> torch.nn.Module:
+    """Reconstruct the configured network with saved input dimensions."""
     model_name = config["model"]["name"]
     model_params = config["model"]["params"]
 
@@ -111,6 +115,7 @@ def make_predictions(
     model_state_dict: dict,
     device: torch.device,
 ) -> list:
+    """Apply saved weights and threshold sigmoid scores at 0.5."""
     model.load_state_dict(state_dict=model_state_dict)
     model.to(device)
     model.eval()
@@ -126,6 +131,7 @@ def make_predictions(
 
 
 def save_submission(passenger_id, y_pred, output_path: Path) -> None:
+    """Write passenger IDs and predicted labels in Kaggle format."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     submission_dataset = pl.DataFrame(
@@ -139,6 +145,7 @@ def save_submission(passenger_id, y_pred, output_path: Path) -> None:
 
 
 def main() -> None:
+    """Restore a trained network and generate a Titanic submission."""
     args = parse_args()
     artifact_path, config = get_artifact_config_path(args=args)
     with open(config) as f:

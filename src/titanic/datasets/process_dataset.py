@@ -12,6 +12,7 @@ OUTPUT_DIR = Path("data/titanic/processed/raw")
 
 
 def main() -> None:
+    """Save raw Titanic features while leaving learned transforms for CV folds."""
     train_path = RAW_DIR / "train.csv"
     test_path = RAW_DIR / "test.csv"
     if not train_path.exists() or not test_path.exists():

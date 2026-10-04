@@ -11,6 +11,7 @@ import polars as pl
 
 
 def main() -> None:
+    """Load the best classic regressor and write Kaggle price predictions."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifact-path", type=Path)
     parser.add_argument("--test-path", type=Path)

@@ -5,6 +5,7 @@ import torch
 
 
 def set_seed(seed:int = 42) -> None:
+    """Seed Python, NumPy, and PyTorch random number generators."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

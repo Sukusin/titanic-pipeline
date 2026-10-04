@@ -14,6 +14,7 @@ from src.house_price.nn.model import MODEL_MAP
 
 
 def main() -> None:
+    """Restore the best saved network and write nonnegative price predictions."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifact-path", type=Path)
     parser.add_argument("--test-path", type=Path)

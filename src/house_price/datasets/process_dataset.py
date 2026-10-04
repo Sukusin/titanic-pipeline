@@ -9,6 +9,7 @@ OUTPUT_DIR = Path("data/house_price/processed/raw")
 
 
 def main() -> None:
+    """Copy raw House Prices CSVs into the processed data directory."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for name in ("train", "test"):
         frame = pl.read_csv(RAW_DIR / f"{name}.csv", null_values="NA", infer_schema_length=None)

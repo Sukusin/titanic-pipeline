@@ -29,6 +29,7 @@ LEADERBOARD_COLUMNS = [
 
 
 def main() -> None:
+    """Collect classic model summaries into the Titanic leaderboard."""
     rows = []
 
     for summary_path in LOGS_DIR.glob("*/summary.json"):

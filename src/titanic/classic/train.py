@@ -38,6 +38,7 @@ SCALER_MAP = {
 }
 
 def parse_args() -> argparse.Namespace:
+    """Parse model configuration, dataset type, and tuning option."""
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -62,6 +63,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def suggest_params(trial: optuna.Trial, search_space: dict) -> dict:
+    """Sample configured Optuna parameters for one trial."""
     params = {}
     for name, spec in search_space.items():
         kind = spec["type"]
@@ -82,6 +84,7 @@ def suggest_params(trial: optuna.Trial, search_space: dict) -> dict:
 
 
 def tune_model(X: pl.DataFrame, y: pl.Series, config: dict) -> tuple[dict, optuna.Study]:
+    """Optimize the configured primary metric using cross-validation."""
     tuning = config.get("optuna")
     if not tuning or not tuning.get("search_space"):
         raise ValueError("--tune requires a non-empty optuna.search_space in the config")
@@ -96,6 +99,7 @@ def tune_model(X: pl.DataFrame, y: pl.Series, config: dict) -> tuple[dict, optun
         raise ValueError(f"Optuna parameters missing from model.params: {sorted(unknown)}")
 
     def objective(trial: optuna.Trial) -> float:
+        """Evaluate one trial on folds with its sampled model parameters."""
         trial_config = deepcopy(config)
         trial_config["model"]["params"].update(suggest_params(trial, tuning["search_space"]))
         metrics = run_cv(X, y, trial_config, [metric])
@@ -121,6 +125,7 @@ def make_folds(
         shuffle: bool = True,
         random_state: int = 42
         ) -> list[tuple]:
+    """Return reproducible stratified train and validation indices."""
     skf =  StratifiedKFold(
         n_splits=n_split,
         shuffle=shuffle,
@@ -134,6 +139,7 @@ def make_folds(
     return folds
 
 def build_scaler(config: dict):
+    """Construct the configured scaler with pandas output for LightGBM."""
     scaler_name = config["preprocessing"]["scaler"]
     scaler_class = SCALER_MAP[scaler_name]
     scaler = scaler_class()
@@ -142,6 +148,7 @@ def build_scaler(config: dict):
     return scaler
 
 def build_model(config: dict):
+    """Instantiate the classifier specified by the model configuration."""
     model_name = config["model"]["name"]
     model_params = config["model"]["params"]
 
@@ -154,6 +161,7 @@ def run_cv(
         config: dict,
         metric_names: list[str]
         ) -> pl.DataFrame:
+    """Evaluate feature engineering, scaling, and modeling inside each fold."""
     folds = make_folds(
         X,
         y,
@@ -167,6 +175,7 @@ def run_cv(
         X_train_fold = X[train_idx]
         X_val_fold = X[val_idx]
 
+        # Fit both learned feature rules and scaling only on this fold's training rows.
         features = TitanicFeatureTransformer(config.get("dataset_type", "original"))
         X_train_fold = features.fit_transform(X_train_fold.to_numpy())
         X_val_fold = features.transform(X_val_fold.to_numpy())
@@ -207,6 +216,7 @@ def train_final_model(
         y: pl.Series,
         config: dict,
         ):
+    """Fit features, scaler, and model on all available training rows."""
     features = TitanicFeatureTransformer(config.get("dataset_type", "original"))
     X_features = features.fit_transform(X.to_numpy())
     scaler = build_scaler(config=config)
@@ -231,6 +241,7 @@ def save_experiment(
         features: list[str],
         study: optuna.Study | None = None,
         ) -> None:
+    """Persist the fitted model, preprocessing, fold scores, and metadata."""
     model_path = artifact_dir / "model.joblib"
     scaler_path = artifact_dir / "scaler.joblib"
     features_path = artifact_dir / "features.joblib"
@@ -295,6 +306,7 @@ def save_experiment(
     print("=="*25)
 
 def main() -> None:
+    """Cross-validate, optionally tune, and save a classic Titanic model."""
     args = parse_args()
     config = load_config(args.config)
     if config["metrics"]["primary"] != "f1" or "f1" not in config["metrics"]["log"]:

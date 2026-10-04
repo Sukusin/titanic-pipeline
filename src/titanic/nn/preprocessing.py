@@ -11,6 +11,7 @@ class EmbeddingPreprocessor(TransformerMixin, BaseEstimator):
     """Scale numerical columns and map categories to IDs, reserving 0 for unknowns."""
 
     def __init__(self, scaler, feature_names: list[str], categorical_features: list[str]):
+        """Store the numeric scaler and categorical column layout."""
         self.scaler = scaler
         self.feature_names = feature_names
         self.categorical_features = categorical_features
@@ -55,6 +56,7 @@ class EmbeddingPreprocessor(TransformerMixin, BaseEstimator):
         if X.ndim != 2 or X.shape[1] != self.n_features_in_:
             raise ValueError("Input shape differs from the fitted embedding preprocessor.")
         transformed = np.empty(X.shape, dtype=np.float32)
+        # OrdinalEncoder uses -1 for unseen values; shifting reserves embedding ID 0 for them.
         transformed[:, self.categorical_indices_] = (
             self.encoder_.transform(X[:, self.categorical_indices_]) + 1
         )

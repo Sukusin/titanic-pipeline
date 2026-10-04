@@ -48,6 +48,7 @@ def build_model(X: pd.DataFrame, name: str, config: dict):
 
 
 def run_cv(X: pd.DataFrame, y: pd.Series, model, config: dict) -> pl.DataFrame:
+    """Evaluate cloned regressors on the configured folds in price units."""
     validation = config["validation"]
     folds = KFold(
         n_splits=validation["n_splits"],
@@ -69,6 +70,7 @@ def run_cv(X: pd.DataFrame, y: pd.Series, model, config: dict) -> pl.DataFrame:
 
 
 def main() -> None:
+    """Train and save the selected classic House Prices model."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("configs/house_price/classic.yaml"))
     parser.add_argument("--model", choices=MODEL_MAP, required=True)

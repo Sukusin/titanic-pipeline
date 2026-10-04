@@ -11,6 +11,7 @@ def calculate_metrics(
         y_proba=None,
         ) -> dict[str, float | None]:
 
+    """Calculate requested classification metrics; AUC needs probability scores."""
     results = {}
 
     for metric_name in metric_names:
@@ -37,6 +38,7 @@ def calculate_metrics(
     return results
 
 def summarize_metrics(fold_metrics_df: pl.DataFrame, metric_names: list[str]) -> dict[str, float]:
+    """Compute mean and standard deviation for each fold metric."""
     summary = {}
     for metric_name in metric_names:
         values = fold_metrics_df.get_column(metric_name).drop_nulls()

@@ -18,12 +18,14 @@ class ModelOne(nn.Module):
     """Two-layer MLP used as a simple baseline."""
 
     def __init__(self, in_features: int, hidden_features: int, out_features: int = 1):
+        """Build a single-hidden-layer ReLU classifier."""
         super().__init__()
         self.layer1 = nn.Linear(in_features, hidden_features)
         self.act = nn.ReLU()
         self.layer2 = nn.Linear(hidden_features, out_features)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Return logits for the input feature batch."""
         return self.layer2(self.act(self.layer1(x)))
 
 

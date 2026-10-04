@@ -7,6 +7,7 @@ import polars as pl
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse artifact, test-data, and output paths for inference."""
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -30,6 +31,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def get_artifact_path(args: argparse.Namespace) -> str | Path:
+    """Use an explicit artifact or select the best compatible leaderboard run."""
     if args.artifact_path is not None:
         return args.artifact_path
     else:
@@ -48,6 +50,7 @@ def get_artifact_path(args: argparse.Namespace) -> str | Path:
 def load_artifacts(
         artifact_path: str | Path,
         ):
+    """Restore metadata, model, scaler, and optional feature transformer."""
     metadata_path = f"{artifact_path}/metadata.json"
     with open(file=metadata_path) as f:
         metadata = json.load(f)
@@ -60,10 +63,12 @@ def load_artifacts(
     return metadata, model, scaler, feature_transformer
 
 def make_predictions(X, model):
+    """Predict survival labels from preprocessed passenger features."""
     y_pred = model.predict(X)
     return y_pred
 
 def save_submission(passenger_id, y_pred, output_path) -> None:
+    """Write passenger IDs and survival predictions in Kaggle format."""
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     data = {
         "PassengerId": passenger_id,
@@ -74,6 +79,7 @@ def save_submission(passenger_id, y_pred, output_path) -> None:
     submission_dataset.write_csv(output_path)
 
 def main() -> None:
+    """Load the selected classic model and generate a Titanic submission."""
     args = parse_args()
     artifact_path = get_artifact_path(args=args)
     metadata, model, scaler, feature_transformer = load_artifacts(artifact_path=artifact_path)

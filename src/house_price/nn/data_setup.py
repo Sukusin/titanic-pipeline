@@ -12,6 +12,7 @@ from src.house_price.preprocessing import build_preprocessor
 def make_loader(
     X: np.ndarray, y_log: np.ndarray, batch_size: int, shuffle: bool
 ) -> DataLoader:
+    """Convert numeric features and log prices into a batched loader."""
     dataset = TensorDataset(
         torch.tensor(X, dtype=torch.float32),
         torch.tensor(y_log, dtype=torch.float32),
@@ -35,6 +36,7 @@ def prepare_fold(
 def prepare_final(
     X: pd.DataFrame, y_log: np.ndarray, batch_size: int
 ) -> tuple[DataLoader, ColumnTransformer, int]:
+    """Fit preprocessing on all training rows for the final model."""
     preprocessor = build_preprocessor(X)
     features = preprocessor.fit_transform(X)
     return make_loader(features, y_log, batch_size, True), preprocessor, features.shape[1]

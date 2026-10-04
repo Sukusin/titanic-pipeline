@@ -22,6 +22,7 @@ class EmbeddingModel(nn.Module):
         batch_norm: bool = False,
         dropout_rate: float = 0.0,
     ):
+        """Build per-column embeddings and the final dense classifier."""
         super().__init__()
         indices = categorical_indices + numerical_indices
         if sorted(indices) != list(range(in_features)):
